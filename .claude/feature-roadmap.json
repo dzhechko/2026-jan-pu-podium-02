@@ -133,6 +133,49 @@
       ],
       "depends_on": ["sms-integration", "cascade-reminders", "sms-templates"],
       "sprint": "v1.0"
+    },
+    {
+      "id": "messenger-auto-linking",
+      "name": "Messenger Auto-Linking",
+      "description": "Auto-link Telegram/Max clients via bot deep links + webhooks instead of manual chat_id entry",
+      "status": "done",
+      "files": [
+        "packages/api/src/modules/webhooks/",
+        "packages/api/src/services/telegram.ts",
+        "packages/api/src/services/max.ts",
+        "packages/api/src/modules/settings/service.ts",
+        "packages/api/src/modules/sms/service.ts",
+        "packages/admin/src/pages/Clients.tsx"
+      ],
+      "depends_on": ["multi-channel-messaging"],
+      "sprint": "v1.0"
+    },
+    {
+      "id": "channel-analytics",
+      "name": "Channel Analytics",
+      "description": "Analytics breakdown by channel (SMS vs Telegram vs Max): delivery rates, conversion per channel, cost comparison",
+      "status": "planned",
+      "files": [],
+      "depends_on": ["analytics-dashboard", "multi-channel-messaging"],
+      "sprint": "v1.1"
+    },
+    {
+      "id": "batch-send-ui",
+      "name": "Batch Send UI",
+      "description": "Admin panel UI for selecting multiple clients and sending review requests in bulk with channel selection",
+      "status": "planned",
+      "files": [],
+      "depends_on": ["admin-panel-ui", "multi-channel-messaging"],
+      "sprint": "v1.1"
+    },
+    {
+      "id": "webhook-max-auth",
+      "name": "Max Webhook Authentication",
+      "description": "Add IP allowlist or per-admin secret tokens for Max webhook endpoints (SEC-02 deferred)",
+      "status": "planned",
+      "files": [],
+      "depends_on": ["messenger-auto-linking"],
+      "sprint": "v1.1"
     }
   ]
 }
