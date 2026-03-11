@@ -26,12 +26,12 @@ describe('SmsTemplateService', () => {
   describe('upsertTemplate', () => {
     it('creates new template when none exists', async () => {
       prisma.smsTemplate.findFirst.mockResolvedValue(null);
-      prisma.smsTemplate.create.mockResolvedValue({ id: 't-1', reminderNumber: 1, messageTemplate: 'test {link} {optout}' });
+      prisma.smsTemplate.create.mockResolvedValue({ id: 't-1', reminderNumber: 1, messageTemplate: 'test {link} {optout}', channel: 'sms' });
 
       const result = await service.upsertTemplate('admin-1', 1, 'test {link} {optout}');
 
       expect(prisma.smsTemplate.create).toHaveBeenCalledWith({
-        data: { adminId: 'admin-1', reminderNumber: 1, messageTemplate: 'test {link} {optout}' },
+        data: { adminId: 'admin-1', reminderNumber: 1, messageTemplate: 'test {link} {optout}', channel: 'sms' },
       });
       expect(result.id).toBe('t-1');
     });
@@ -58,6 +58,20 @@ describe('SmsTemplateService', () => {
       await expect(
         service.upsertTemplate('admin-1', 0, 'Привет! {link}')
       ).rejects.toThrow('{optout}');
+    });
+
+    it('supports channel parameter', async () => {
+      prisma.smsTemplate.findFirst.mockResolvedValue(null);
+      prisma.smsTemplate.create.mockResolvedValue({ id: 't-2', channel: 'telegram' });
+
+      await service.upsertTemplate('admin-1', 0, 'test {link} {optout}', 'telegram');
+
+      expect(prisma.smsTemplate.findFirst).toHaveBeenCalledWith({
+        where: { adminId: 'admin-1', reminderNumber: 0, channel: 'telegram' },
+      });
+      expect(prisma.smsTemplate.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ channel: 'telegram' }),
+      });
     });
   });
 
@@ -89,6 +103,15 @@ describe('SmsTemplateService', () => {
 
       expect(msg).toContain('Последнее напоминание');
     });
+
+    it('uses messenger template for telegram channel', async () => {
+      prisma.smsTemplate.findFirst.mockResolvedValue(null);
+
+      const msg = await service.getMessage('admin-1', 0, 'Кофе', 'https://l.ink', 'https://opt.out', 'telegram');
+
+      expect(msg).toContain('*Кофе*');
+      expect(msg).toContain('https://l.ink');
+    });
   });
 
   describe('deleteTemplate', () => {
@@ -113,14 +136,17 @@ describe('SmsTemplateService', () => {
   describe('listTemplates', () => {
     it('returns templates with defaults', async () => {
       prisma.smsTemplate.findMany.mockResolvedValue([
-        { id: 't-1', reminderNumber: 0, messageTemplate: 'custom', createdAt: new Date() },
+        { id: 't-1', reminderNumber: 0, channel: 'sms', messageTemplate: 'custom', createdAt: new Date() },
       ]);
 
       const result = await service.listTemplates('admin-1');
 
       expect(result.data).toHaveLength(1);
-      expect(result.defaults).toHaveProperty('0');
-      expect(result.defaults).toHaveProperty('4');
+      expect(result.data[0].channel).toBe('sms');
+      expect(result.defaults).toHaveProperty('sms');
+      expect(result.defaults).toHaveProperty('messenger');
+      expect(result.defaults.sms).toHaveProperty('0');
+      expect(result.defaults.sms).toHaveProperty('4');
     });
   });
 });

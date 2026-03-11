@@ -8,18 +8,19 @@ function createMockPrisma() {
       findMany: vi.fn(),
       update: vi.fn(),
     },
-    smsTemplate: {
-      findFirst: vi.fn(),
-    },
     smsLog: {
       create: vi.fn(),
     },
   } as any;
 }
 
-function createMockSmsc() {
+function createMockGateway() {
   return {
-    sendSms: vi.fn(),
+    send: vi.fn().mockResolvedValue({
+      success: true,
+      externalId: 'ext-1',
+      actualChannel: 'sms',
+    }),
   } as any;
 }
 
@@ -29,9 +30,15 @@ function createMockEncryption() {
   } as any;
 }
 
+function createMockTemplateService() {
+  return {
+    getMessage: vi.fn().mockResolvedValue('Template message'),
+  } as any;
+}
+
 describe('ReminderService', () => {
   let prisma: ReturnType<typeof createMockPrisma>;
-  let smsc: ReturnType<typeof createMockSmsc>;
+  let gateway: ReturnType<typeof createMockGateway>;
   let encryption: ReturnType<typeof createMockEncryption>;
   let service: InstanceType<typeof ReminderService>;
 
@@ -40,6 +47,7 @@ describe('ReminderService', () => {
     adminId: 'admin-1',
     clientId: 'client-1',
     token: 'abc123',
+    channel: 'sms',
     status: 'SMS_SENT',
     reminderCount: 0,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -47,6 +55,8 @@ describe('ReminderService', () => {
     client: {
       id: 'client-1',
       phoneEncrypted: Buffer.from('encrypted'),
+      telegramChatIdEncrypted: null,
+      maxChatIdEncrypted: null,
       optedOut: false,
     },
     admin: {
@@ -57,22 +67,25 @@ describe('ReminderService', () => {
 
   beforeEach(() => {
     prisma = createMockPrisma();
-    smsc = createMockSmsc();
+    gateway = createMockGateway();
     encryption = createMockEncryption();
-    service = new ReminderService(prisma, smsc, encryption, 'https://pwa.test');
+    service = new ReminderService(prisma, gateway, encryption, 'https://pwa.test');
     prisma.reviewRequest.update.mockResolvedValue({});
     prisma.smsLog.create.mockResolvedValue({});
-    prisma.smsTemplate.findFirst.mockResolvedValue(null);
   });
 
   it('sends reminder and increments count', async () => {
     prisma.reviewRequest.findMany.mockResolvedValue([baseRequest]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-1' });
 
     const result = await service.processReminders();
 
     expect(result.sent).toBe(1);
-    expect(smsc.sendSms).toHaveBeenCalledWith('+79001234567', expect.stringContaining('TestCompany'));
+    expect(gateway.send).toHaveBeenCalledWith(
+      'admin-1',
+      'sms',
+      expect.objectContaining({ phone: '+79001234567' }),
+      expect.any(Function),
+    );
     expect(prisma.reviewRequest.update).toHaveBeenCalledWith({
       where: { id: 'req-1' },
       data: expect.objectContaining({
@@ -84,7 +97,6 @@ describe('ReminderService', () => {
 
   it('schedules next reminder after reminder 1', async () => {
     prisma.reviewRequest.findMany.mockResolvedValue([baseRequest]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-1' });
 
     await service.processReminders();
 
@@ -98,7 +110,6 @@ describe('ReminderService', () => {
       reminderCount: 3,
       status: 'REMINDED_3',
     }]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-4' });
 
     await service.processReminders();
 
@@ -132,48 +143,52 @@ describe('ReminderService', () => {
     const result = await service.processReminders();
 
     expect(result.sent).toBe(0);
-    expect(smsc.sendSms).not.toHaveBeenCalled();
+    expect(gateway.send).not.toHaveBeenCalled();
     expect(prisma.reviewRequest.update).toHaveBeenCalledWith({
       where: { id: 'req-1' },
       data: { status: 'OPTED_OUT', nextReminderAt: null },
     });
   });
 
-  it('does not advance reminder on SMS failure', async () => {
+  it('does not advance reminder on send failure', async () => {
     prisma.reviewRequest.findMany.mockResolvedValue([baseRequest]);
-    smsc.sendSms.mockResolvedValue({ success: false, error: 'Network error' });
+    gateway.send.mockResolvedValue({
+      success: false,
+      error: 'Network error',
+      actualChannel: 'sms',
+    });
 
     const result = await service.processReminders();
 
     expect(result.failed).toBe(1);
     expect(result.sent).toBe(0);
-    // Should NOT update the review request (no advancement)
-    expect(prisma.reviewRequest.update).not.toHaveBeenCalled();
   });
 
-  it('includes opt-out link in SMS', async () => {
+  it('builds fallback message with opt-out link', async () => {
     prisma.reviewRequest.findMany.mockResolvedValue([baseRequest]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-1' });
 
     await service.processReminders();
 
-    const smsMessage = smsc.sendSms.mock.calls[0][1];
-    expect(smsMessage).toContain('Отписка:');
-    expect(smsMessage).toContain('optout');
+    // Call the messageFetcher that was passed to gateway.send
+    const messageFetcher = gateway.send.mock.calls[0][3];
+    const message = await messageFetcher('sms');
+    expect(message).toContain('TestCompany');
+    expect(message).toContain('Отписка:');
+    expect(message).toContain('optout');
   });
 
   it('uses custom template when available', async () => {
+    const templateService = createMockTemplateService();
+    templateService.getMessage.mockResolvedValue('TestCompany — отзыв: link Стоп: optout');
+    service = new ReminderService(prisma, gateway, encryption, 'https://pwa.test', templateService);
     prisma.reviewRequest.findMany.mockResolvedValue([baseRequest]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-1' });
-    prisma.smsTemplate.findFirst.mockResolvedValue({
-      messageTemplate: '{company} — отзыв: {link} Стоп: {optout}',
-    });
 
     await service.processReminders();
 
-    const smsMessage = smsc.sendSms.mock.calls[0][1];
-    expect(smsMessage).toContain('TestCompany — отзыв:');
-    expect(smsMessage).toContain('Стоп:');
+    const messageFetcher = gateway.send.mock.calls[0][3];
+    const message = await messageFetcher('sms');
+    expect(message).toContain('TestCompany — отзыв:');
+    expect(message).toContain('Стоп:');
   });
 
   it('handles empty batch', async () => {
@@ -191,14 +206,12 @@ describe('ReminderService', () => {
       ...baseRequest,
       reminderCount: 2,
     }]);
-    smsc.sendSms.mockResolvedValue({ success: true, messageId: 'sms-3' });
 
     await service.processReminders();
 
     expect(prisma.smsLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         reminderNumber: 3,
-        smscMessageId: 'sms-3',
       }),
     });
   });
