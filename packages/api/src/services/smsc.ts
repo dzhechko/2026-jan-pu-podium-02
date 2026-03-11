@@ -13,7 +13,7 @@ export class SmscService {
 
   async sendSms(phone: string, message: string): Promise<SmscResult> {
     if (!this.login || !this.password) {
-      // Dev mode: log instead of sending
+      // Dev mode: log instead of sending when credentials are not configured
       console.log(`[SMSC DEV] To: ${phone}, Message: ${message.slice(0, 50)}...`);
       return { success: true, messageId: `dev-${Date.now()}` };
     }
