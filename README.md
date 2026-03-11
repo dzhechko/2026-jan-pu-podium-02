@@ -43,6 +43,11 @@ See `docs/` for full SPARC documentation:
 - [Specification](docs/Specification.md) — User Stories
 - [Development Guide](DEVELOPMENT_GUIDE.md) — Step-by-step lifecycle
 
+## Bilingual Documentation / Двуязычная документация
+
+- [README (Русский)](README/README.ru.md)
+- [README (English)](README/README.en.md)
+
 ## License
 
 Private
