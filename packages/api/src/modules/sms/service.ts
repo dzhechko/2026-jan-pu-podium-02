@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
-import type { SmscService } from '../../services/smsc.js';
+import type { MessageGateway, MessageSendResult, Recipient } from '../../services/message-gateway.js';
 import type { EncryptionService } from '../../services/encryption.js';
 import type { SmsTemplateService } from './template-service.js';
 import type { ListReviewRequestsQuery } from './schema.js';
@@ -11,13 +11,13 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 export class ReviewRequestService {
   constructor(
     private prisma: PrismaClient,
-    private smsc: SmscService,
+    private gateway: MessageGateway,
     private encryption: EncryptionService,
     private pwaUrl: string,
     private templateService?: SmsTemplateService,
   ) {}
 
-  async sendReviewRequests(adminId: string, clientIds: string[]) {
+  async sendReviewRequests(adminId: string, clientIds: string[], requestedChannel?: string) {
     const admin = await this.prisma.admin.findUniqueOrThrow({ where: { id: adminId } });
     let sent = 0;
     let failed = 0;
@@ -32,8 +32,13 @@ export class ReviewRequestService {
         continue;
       }
 
+      // Determine channel: explicit request > client preference > sms
+      const channel = requestedChannel ?? client.preferredChannel ?? 'sms';
+
       const token = randomUUID().replace(/-/g, '');
       const now = new Date();
+
+      const phone = this.encryption.decrypt(Buffer.from(client.phoneEncrypted));
 
       const reviewRequest = await this.prisma.reviewRequest.create({
         data: {
@@ -41,23 +46,31 @@ export class ReviewRequestService {
           clientId,
           token,
           status: 'PENDING',
+          channel,
           expiresAt: new Date(now.getTime() + THIRTY_DAYS_MS),
         },
       });
 
-      const phone = this.encryption.decrypt(Buffer.from(client.phoneEncrypted));
       const link = `${this.pwaUrl}/review/${token}`;
       const optout = `${this.pwaUrl}/optout/${token}`;
 
-      let message: string;
-      if (this.templateService) {
-        message = await this.templateService.getMessage(adminId, 0, admin.companyName, link, optout);
-      } else {
-        message = `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
-      }
+      // Build recipient object
+      const recipient: Recipient = {
+        phone,
+        telegramChatId: client.telegramChatId ?? undefined,
+        maxChatId: client.maxChatId ?? undefined,
+      };
 
-      const result = await this.smsc.sendSms(phone, message);
-      const phoneMasked = phone.slice(0, 4) + '****' + phone.slice(-2);
+      // Build message fetcher (re-fetches per channel for fallback - AC-9)
+      const messageFetcher = async (ch: string): Promise<string> => {
+        if (this.templateService) {
+          return this.templateService.getMessage(adminId, 0, admin.companyName, link, optout, ch);
+        }
+        return `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
+      };
+
+      // Send via gateway (handles fallback + template re-fetch)
+      const result = await this.gateway.send(channel, recipient, messageFetcher);
 
       if (result.success) {
         await this.prisma.reviewRequest.update({
@@ -66,34 +79,69 @@ export class ReviewRequestService {
             status: 'SMS_SENT',
             smsSentAt: now,
             nextReminderAt: new Date(now.getTime() + TWO_HOURS_MS),
+            // Update channel if fallback occurred
+            channel: result.actualChannel,
           },
         });
-
-        await this.prisma.smsLog.create({
-          data: {
-            reviewRequestId: reviewRequest.id,
-            phoneMasked,
-            messagePreview: message.slice(0, 100),
-            smscMessageId: result.messageId,
-            status: 'SENT',
-            sentAt: now,
-          },
-        });
+        await this.createMessageLog(reviewRequest.id, result, channel, recipient, now);
         sent++;
       } else {
-        await this.prisma.smsLog.create({
-          data: {
-            reviewRequestId: reviewRequest.id,
-            phoneMasked,
-            messagePreview: message.slice(0, 100),
-            status: 'FAILED',
-          },
-        });
+        await this.createMessageLog(reviewRequest.id, result, channel, recipient, null);
         failed++;
       }
     }
 
     return { sent, failed };
+  }
+
+  private async createMessageLog(
+    reviewRequestId: string,
+    result: MessageSendResult,
+    requestedChannel: string,
+    recipient: Recipient,
+    sentAt: Date | null,
+  ): Promise<void> {
+    const actualChannel = result.actualChannel;
+    const phoneMasked = actualChannel === 'sms'
+      ? recipient.phone.slice(0, 4) + '****' + recipient.phone.slice(-2)
+      : `${actualChannel}:${this.getRecipientIdForLog(actualChannel, recipient)}`;
+
+    await this.prisma.smsLog.create({
+      data: {
+        reviewRequestId,
+        phoneMasked,
+        messagePreview: '',
+        smscMessageId: actualChannel === 'sms' ? result.externalId : null,
+        externalId: result.externalId,
+        channel: actualChannel,
+        status: result.success ? 'SENT' : 'FAILED',
+        sentAt,
+      },
+    });
+
+    // Log fallback attempt separately
+    if (result.fallbackFrom) {
+      await this.prisma.smsLog.create({
+        data: {
+          reviewRequestId,
+          phoneMasked: `${result.fallbackFrom}:failed`,
+          messagePreview: `Fallback from ${result.fallbackFrom} to sms`,
+          channel: result.fallbackFrom,
+          status: 'FAILED',
+        },
+      });
+    }
+  }
+
+  private getRecipientIdForLog(channel: string, recipient: Recipient): string {
+    switch (channel) {
+      case 'telegram':
+        return recipient.telegramChatId ?? 'unknown';
+      case 'max':
+        return recipient.maxChatId ?? 'unknown';
+      default:
+        return recipient.phone;
+    }
   }
 
   async listReviewRequests(adminId: string, query: ListReviewRequestsQuery) {

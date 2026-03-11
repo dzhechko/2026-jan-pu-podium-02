@@ -1,7 +1,8 @@
 import cron from 'node-cron';
 import type { PrismaClient } from '@prisma/client';
-import type { SmscService } from './smsc.js';
+import type { MessageGateway, Recipient, MessageSendResult } from './message-gateway.js';
 import type { EncryptionService } from './encryption.js';
+import type { SmsTemplateService } from '../modules/sms/template-service.js';
 
 const TERMINAL_STATUSES = ['REVIEWED', 'OPTED_OUT', 'EXPIRED'];
 const MAX_REMINDERS = 4;
@@ -27,9 +28,10 @@ export class ReminderService {
 
   constructor(
     private prisma: PrismaClient,
-    private smsc: SmscService,
+    private gateway: MessageGateway,
     private encryption: EncryptionService,
     private pwaUrl: string,
+    private templateService?: SmsTemplateService,
     private logger?: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void },
   ) {}
 
@@ -74,25 +76,42 @@ export class ReminderService {
 
         const nextReminderNumber = request.reminderCount + 1;
 
+        // Use same channel as initial send
+        const channel = request.channel ?? 'sms';
+
         // Decrypt phone
         const phone = this.encryption.decrypt(Buffer.from(request.client.phoneEncrypted));
-        const phoneMasked = phone.slice(0, 4) + '****' + phone.slice(-2);
 
         // Build message
         const link = `${this.pwaUrl}/review/${request.token}`;
         const optoutLink = `${this.pwaUrl}/optout/${request.token}`;
-        const message = await this.buildMessage(
-          request.adminId,
-          nextReminderNumber,
-          request.admin.companyName,
-          link,
-          optoutLink,
-        );
 
-        // Send SMS
-        const smsResult = await this.smsc.sendSms(phone, message);
+        // Build recipient object
+        const recipient: Recipient = {
+          phone,
+          telegramChatId: request.client.telegramChatId ?? undefined,
+          maxChatId: request.client.maxChatId ?? undefined,
+        };
 
-        if (smsResult.success) {
+        // Build message fetcher (re-fetches per channel for fallback - AC-9)
+        const messageFetcher = async (ch: string): Promise<string> => {
+          if (this.templateService) {
+            return this.templateService.getMessage(
+              request.adminId,
+              nextReminderNumber,
+              request.admin.companyName,
+              link,
+              optoutLink,
+              ch,
+            );
+          }
+          return this.buildFallbackMessage(request.admin.companyName, link, optoutLink);
+        };
+
+        // Send via gateway (handles fallback + template re-fetch)
+        const gatewayResult = await this.gateway.send(channel, recipient, messageFetcher);
+
+        if (gatewayResult.success) {
           // Calculate next reminder timing
           const nextDelay = NEXT_REMINDER_DELAY[nextReminderNumber + 1];
           const nextReminderAt = nextDelay ? new Date(now.getTime() + nextDelay) : null;
@@ -103,25 +122,16 @@ export class ReminderService {
               reminderCount: nextReminderNumber,
               nextReminderAt,
               status: `REMINDED_${nextReminderNumber}`,
+              channel: gatewayResult.actualChannel,
             },
           });
 
-          await this.prisma.smsLog.create({
-            data: {
-              reviewRequestId: request.id,
-              phoneMasked,
-              messagePreview: message.slice(0, 100),
-              smscMessageId: smsResult.messageId,
-              status: 'SENT',
-              reminderNumber: nextReminderNumber,
-              sentAt: now,
-            },
-          });
-
+          await this.createMessageLog(request.id, gatewayResult, channel, recipient, nextReminderNumber, now);
           result.sent++;
         } else {
           // Don't advance reminder count on failure — retry next cron tick
-          this.logger?.error(`SMS failed for request ${request.id}: ${smsResult.error}`);
+          this.logger?.error(`Message failed for request ${request.id}: ${gatewayResult.error}`);
+          await this.createMessageLog(request.id, gatewayResult, channel, recipient, nextReminderNumber, null);
           result.failed++;
         }
       } catch (err) {
@@ -133,27 +143,61 @@ export class ReminderService {
     return result;
   }
 
-  private async buildMessage(
-    adminId: string,
+  private buildFallbackMessage(companyName: string, link: string, optoutLink: string): string {
+    return `${companyName}: Напоминаем — оставьте отзыв: ${link}\nОтписка: ${optoutLink}`;
+  }
+
+  private async createMessageLog(
+    reviewRequestId: string,
+    result: MessageSendResult,
+    requestedChannel: string,
+    recipient: Recipient,
     reminderNumber: number,
-    companyName: string,
-    link: string,
-    optoutLink: string,
-  ): Promise<string> {
-    // Try to use custom template
-    const template = await this.prisma.smsTemplate.findFirst({
-      where: { adminId, reminderNumber },
+    sentAt: Date | null,
+  ): Promise<void> {
+    const actualChannel = result.actualChannel;
+    const phoneMasked = actualChannel === 'sms'
+      ? recipient.phone.slice(0, 4) + '****' + recipient.phone.slice(-2)
+      : `${actualChannel}:${this.getRecipientIdForLog(actualChannel, recipient)}`;
+
+    await this.prisma.smsLog.create({
+      data: {
+        reviewRequestId,
+        phoneMasked,
+        messagePreview: '',
+        smscMessageId: actualChannel === 'sms' ? result.externalId : null,
+        externalId: result.externalId,
+        channel: actualChannel,
+        status: result.success ? 'SENT' : 'FAILED',
+        reminderNumber,
+        sentAt,
+      },
     });
 
-    if (template) {
-      return template.messageTemplate
-        .replace('{company}', companyName)
-        .replace('{link}', link)
-        .replace('{optout}', optoutLink);
+    // Log fallback attempt separately
+    if (result.fallbackFrom) {
+      await this.prisma.smsLog.create({
+        data: {
+          reviewRequestId,
+          phoneMasked: `${result.fallbackFrom}:failed`,
+          messagePreview: `Fallback from ${result.fallbackFrom} to sms`,
+          channel: result.fallbackFrom,
+          status: 'FAILED',
+          reminderNumber,
+        },
+      });
     }
+  }
 
-    // Default message
-    return `${companyName}: Напоминаем — оставьте отзыв: ${link}\nОтписка: ${optoutLink}`;
+  private getRecipientIdForLog(channel: string, recipient: Recipient): string {
+    switch (channel) {
+      case 'telegram':
+        return recipient.telegramChatId ?? 'unknown';
+      case 'max':
+        return recipient.maxChatId ?? 'unknown';
+      default:
+        return recipient.phone;
+    }
   }
 
   startScheduler(): void {

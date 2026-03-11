@@ -68,3 +68,17 @@ export class ApiError extends Error {
     super(message);
   }
 }
+
+export interface ChannelInfo {
+  type: 'sms' | 'telegram' | 'max';
+  configured: boolean;
+  bot_username?: string;
+}
+
+export interface ChannelsResponse {
+  channels: ChannelInfo[];
+}
+
+export function getChannels(): Promise<ChannelsResponse> {
+  return apiClient<ChannelsResponse>('/settings/channels');
+}

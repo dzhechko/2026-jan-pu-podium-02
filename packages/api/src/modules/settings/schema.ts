@@ -5,6 +5,8 @@ export const updateSettingsSchema = z.object({
   yandex_maps_url: z.string().url('Некорректный URL').optional(),
   discount_percent: z.number().int().min(1).max(100).optional(),
   discount_text: z.string().max(500).optional(),
+  telegram_bot_token: z.string().optional(),
+  max_bot_token: z.string().optional(),
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

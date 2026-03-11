@@ -25,6 +25,7 @@ import { SentimentService } from './modules/sentiment/service.js';
 import { AnalyticsService } from './modules/analytics/service.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
 import { ReminderService } from './services/reminder.js';
+import { MessageGateway } from './services/message-gateway.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -71,19 +72,22 @@ app.get('/api/health', async () => ({
 // Auth routes
 await authRoutes(app, authService);
 
+// Shared services
+const encryptionService = new EncryptionService(env.ENCRYPTION_KEY);
+
 // Settings routes
-const settingsService = new SettingsService(prisma);
+const settingsService = new SettingsService(prisma, encryptionService);
 await settingsRoutes(app, settingsService, authenticate);
 
 // Clients routes
-const encryptionService = new EncryptionService(env.ENCRYPTION_KEY);
 const clientsService = new ClientsService(prisma, encryptionService);
 await clientsRoutes(app, clientsService, authenticate);
 
 // SMS / Review Request routes
 const smscService = new SmscService(env.SMSC_LOGIN, env.SMSC_PASSWORD, env.SMSC_SENDER);
 const smsTemplateService = new SmsTemplateService(prisma);
-const reviewRequestService = new ReviewRequestService(prisma, smscService, encryptionService, env.PWA_URL, smsTemplateService);
+const messageGateway = new MessageGateway(smscService);
+const reviewRequestService = new ReviewRequestService(prisma, messageGateway, encryptionService, env.PWA_URL, smsTemplateService);
 await smsRoutes(app, reviewRequestService, authenticate, smsTemplateService);
 
 // Sentiment analysis
@@ -100,7 +104,7 @@ const analyticsService = new AnalyticsService(prisma);
 await analyticsRoutes(app, analyticsService, authenticate);
 
 // Cascade reminder scheduler
-const reminderService = new ReminderService(prisma, smscService, encryptionService, env.PWA_URL, {
+const reminderService = new ReminderService(prisma, messageGateway, encryptionService, env.PWA_URL, smsTemplateService, {
   info: (msg) => app.log.info(msg),
   error: (msg, err) => app.log.error({ err }, msg),
 });

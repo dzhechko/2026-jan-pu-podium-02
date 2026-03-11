@@ -18,6 +18,9 @@ export class ClientsService {
         name: input.name,
         phoneEncrypted,
         emailEncrypted,
+        telegramChatId: input.telegram_chat_id ?? null,
+        maxChatId: input.max_chat_id ?? null,
+        preferredChannel: input.preferred_channel ?? 'sms',
       },
     });
 
@@ -60,10 +63,12 @@ export class ClientsService {
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const validChannels = ['sms', 'telegram', 'max'];
 
     for (let i = startIdx; i < lines.length; i++) {
       const parts = lines[i].split(',').map((s) => s.trim());
-      const [name, phone, email] = parts;
+      // Extended CSV: name,phone,email,telegram_chat_id,max_chat_id,preferred_channel
+      const [name, phone, email, telegramChatId, maxChatId, preferredChannelRaw] = parts;
 
       if (!name || !phone) {
         errors.push(`Row ${i + 1}: missing name or phone`);
@@ -77,12 +82,42 @@ export class ClientsService {
         continue;
       }
 
+      // Validate telegram_chat_id format (numeric)
+      const tgChatId = telegramChatId || null;
+      if (tgChatId && !/^\d+$/.test(tgChatId)) {
+        errors.push(`Row ${i + 1}: telegram_chat_id must be numeric`);
+        skipped++;
+        continue;
+      }
+
+      const mxChatId = maxChatId || null;
+
+      // Auto-detect preferred channel from available IDs
+      let preferredChannel = preferredChannelRaw?.trim() ?? '';
+      if (!preferredChannel || !validChannels.includes(preferredChannel)) {
+        if (tgChatId) {
+          preferredChannel = 'telegram';
+        } else if (mxChatId) {
+          preferredChannel = 'max';
+        } else {
+          preferredChannel = 'sms';
+        }
+      }
+
       try {
         const phoneEncrypted = this.encryption.encrypt(phone);
         const emailEncrypted = email ? this.encryption.encrypt(email) : null;
 
         await this.prisma.client.create({
-          data: { adminId, name, phoneEncrypted, emailEncrypted },
+          data: {
+            adminId,
+            name,
+            phoneEncrypted,
+            emailEncrypted,
+            telegramChatId: tgChatId,
+            maxChatId: mxChatId,
+            preferredChannel,
+          },
         });
         imported++;
       } catch {
@@ -99,6 +134,9 @@ export class ClientsService {
     name: string;
     phoneEncrypted: Buffer;
     emailEncrypted: Buffer | null;
+    telegramChatId: string | null;
+    maxChatId: string | null;
+    preferredChannel: string;
     optedOut: boolean;
     createdAt: Date;
   }) {
@@ -109,6 +147,9 @@ export class ClientsService {
       email: client.emailEncrypted
         ? this.encryption.decrypt(Buffer.from(client.emailEncrypted))
         : null,
+      telegram_chat_id: client.telegramChatId,
+      max_chat_id: client.maxChatId,
+      preferred_channel: client.preferredChannel,
       opted_out: client.optedOut,
       created_at: client.createdAt.toISOString(),
     };

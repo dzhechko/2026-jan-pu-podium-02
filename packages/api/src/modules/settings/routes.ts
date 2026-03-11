@@ -24,7 +24,19 @@ export async function settingsRoutes(
       });
     }
 
-    const settings = await settingsService.updateSettings(request.user!.sub, parsed.data);
-    return { data: settings };
+    try {
+      const settings = await settingsService.updateSettings(request.user!.sub, parsed.data);
+      return { data: settings };
+    } catch (err) {
+      return reply.status(400).send({
+        error: { code: 'VALIDATION', message: String(err instanceof Error ? err.message : err) },
+      });
+    }
+  });
+
+  app.get('/api/settings/channels', {
+    preHandler: [authenticate],
+  }, async (request) => {
+    return settingsService.getChannels(request.user!.sub);
   });
 }

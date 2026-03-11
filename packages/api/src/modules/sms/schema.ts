@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
+export const channelEnum = z.enum(['sms', 'telegram', 'max']);
+
 export const sendReviewRequestsSchema = z.object({
   client_ids: z.array(z.string().uuid()).min(1, 'Выберите хотя бы одного клиента'),
+  channel: channelEnum.optional(),
 });
 
 export const listReviewRequestsSchema = z.object({
@@ -15,9 +18,10 @@ export const upsertSmsTemplateSchema = z.object({
   message_template: z
     .string()
     .min(10, 'Минимум 10 символов')
-    .max(500, 'Максимум 500 символов')
+    .max(4096, 'Максимум 4096 символов')
     .refine((s) => s.includes('{link}'), { message: 'Шаблон должен содержать {link}' })
     .refine((s) => s.includes('{optout}'), { message: 'Шаблон должен содержать {optout}' }),
+  channel: channelEnum.optional().default('sms'),
 });
 
 export const deleteSmsTemplateParamsSchema = z.object({

@@ -17,6 +17,10 @@ model Admin {
   yandexOrgId    String?  @map("yandex_org_id") @db.VarChar(100)
   discountPercent Int     @default(10) @map("discount_percent")
   discountText   String   @default("Скидка на следующий визит") @map("discount_text")
+  telegramBotTokenEncrypted Bytes?  @map("telegram_bot_token_encrypted")
+  telegramBotUsername       String? @map("telegram_bot_username")
+  maxBotTokenEncrypted      Bytes?  @map("max_bot_token_encrypted")
+  maxBotName                String? @map("max_bot_name")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
@@ -34,6 +38,9 @@ model Client {
   name           String   @db.VarChar(255)
   phoneEncrypted Bytes    @map("phone_encrypted")
   emailEncrypted Bytes?   @map("email_encrypted")
+  telegramChatId String?  @map("telegram_chat_id")
+  maxChatId      String?  @map("max_chat_id")
+  preferredChannel String @default("sms") @map("preferred_channel")
   optedOut       Boolean  @default(false) @map("opted_out")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
@@ -50,10 +57,12 @@ model SmsTemplate {
   adminId         String   @map("admin_id") @db.Uuid
   reminderNumber  Int      @map("reminder_number")
   messageTemplate String   @map("message_template")
+  channel         String   @default("sms")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   admin           Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
+  @@unique([adminId, reminderNumber, channel])
   @@map("sms_templates")
 }
 
@@ -66,6 +75,7 @@ model ReviewRequest {
   reminderCount  Int       @default(0) @map("reminder_count")
   smsSentAt      DateTime? @map("sms_sent_at") @db.Timestamptz()
   nextReminderAt DateTime? @map("next_reminder_at") @db.Timestamptz()
+  channel        String    @default("sms")
   expiresAt      DateTime  @map("expires_at") @db.Timestamptz()
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
@@ -105,6 +115,8 @@ model SmsLog {
   phoneMasked     String    @map("phone_masked") @db.VarChar(20)
   messagePreview  String?   @map("message_preview") @db.VarChar(100)
   smscMessageId   String?   @map("smsc_message_id") @db.VarChar(100)
+  channel         String    @default("sms")
+  externalId      String?   @map("external_id")
   status          String    @default("QUEUED") @db.VarChar(20)
   reminderNumber  Int       @default(0) @map("reminder_number")
   sentAt          DateTime? @map("sent_at") @db.Timestamptz()

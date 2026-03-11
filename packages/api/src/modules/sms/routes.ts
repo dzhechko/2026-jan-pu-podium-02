@@ -27,6 +27,7 @@ export async function smsRoutes(
     const result = await reviewRequestService.sendReviewRequests(
       request.user!.sub,
       parsed.data.client_ids,
+      parsed.data.channel,
     );
     return result;
   });
@@ -55,10 +56,12 @@ export async function smsRoutes(
           request.user!.sub,
           parsed.data.reminder_number,
           parsed.data.message_template,
+          parsed.data.channel,
         );
         return {
           id: template.id,
           reminder_number: template.reminderNumber,
+          channel: template.channel,
           message_template: template.messageTemplate,
           created_at: template.createdAt.toISOString(),
         };
