@@ -154,8 +154,12 @@
       "id": "channel-analytics",
       "name": "Channel Analytics",
       "description": "Analytics breakdown by channel (SMS vs Telegram vs Max): delivery rates, conversion per channel, cost comparison",
-      "status": "planned",
-      "files": [],
+      "status": "done",
+      "files": [
+        "packages/api/src/modules/analytics/service.ts",
+        "packages/api/src/modules/analytics/routes.ts",
+        "packages/admin/src/pages/Dashboard.tsx"
+      ],
       "depends_on": ["analytics-dashboard", "multi-channel-messaging"],
       "sprint": "v1.1"
     },
@@ -163,17 +167,21 @@
       "id": "batch-send-ui",
       "name": "Batch Send UI",
       "description": "Admin panel UI for selecting multiple clients and sending review requests in bulk with channel selection",
-      "status": "planned",
-      "files": [],
+      "status": "done",
+      "files": ["packages/admin/src/pages/Clients.tsx"],
       "depends_on": ["admin-panel-ui", "multi-channel-messaging"],
       "sprint": "v1.1"
     },
     {
       "id": "webhook-max-auth",
       "name": "Max Webhook Authentication",
-      "description": "Add IP allowlist or per-admin secret tokens for Max webhook endpoints (SEC-02 deferred)",
-      "status": "planned",
-      "files": [],
+      "description": "Add per-admin HMAC token in Max webhook URL for authentication (SEC-02 resolved)",
+      "status": "done",
+      "files": [
+        "packages/api/src/modules/webhooks/service.ts",
+        "packages/api/src/modules/webhooks/routes.ts",
+        "packages/api/src/modules/webhooks/schema.ts"
+      ],
       "depends_on": ["messenger-auto-linking"],
       "sprint": "v1.1"
     }
