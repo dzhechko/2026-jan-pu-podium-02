@@ -58,6 +58,30 @@ Read the sparc-prd-mini skill from .claude/skills/sparc-prd-mini/SKILL.md
    - Note: CLAUDE.md is NOT generated per-feature (project-level CLAUDE.md already exists)
 6. Git commit: `docs(feature): SPARC planning for <feature-name>`
 
+### SPARC Completeness Gate (HARD GATE — INS-002)
+
+Before proceeding to validation, verify all 5 mandatory SPARC docs exist:
+
+```
+REQUIRED (BLOCKS if any missing):
+  ✅ PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md
+
+CHECK:
+  missing = []
+  FOR doc IN [PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md]:
+    IF NOT exists docs/features/<feature-name>/sparc/{doc}:
+      missing.append(doc)
+
+  IF missing is not empty:
+    ⛔ BLOCK — "SPARC Completeness Gate FAILED: missing {missing}"
+    GENERATE missing documents using project context + existing feature docs
+    COMMIT "docs(feature): complete SPARC docs for <feature-name>"
+
+  ✅ SPARC Completeness Gate PASSED — 5/5 mandatory docs present
+```
+
+**Rationale:** Code MUST be generated from complete documentation. Incomplete docs → hallucinated code. This gate ensures the full specification exists BEFORE any validation or implementation begins.
+
 **⏸️ Checkpoint:** Show SPARC summary, ask to proceed to validation.
 
 ## Phase 2: VALIDATE (requirements-validator, swarm)

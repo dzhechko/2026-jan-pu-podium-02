@@ -117,21 +117,44 @@ IF scope == "mvp" AND planned features remain:
 - If `/start` fails, stop and report — project bootstrap is critical
 - On any failure: always push current state to remote first
 
+## SPARC Completeness Gate (PRE-IMPLEMENTATION — INS-002 compliance)
+
+**CRITICAL:** This gate runs BEFORE implementation, not after. Docs drive code.
+
+After `/go` generates SPARC docs but BEFORE implementation starts:
+```
+FOR EACH feature about to be implemented:
+  missing = []
+  FOR doc IN [PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md]:
+    IF NOT exists docs/features/<feature-name>/sparc/{doc}:
+      missing.append(doc)
+
+  IF missing is not empty:
+    ⛔ BLOCK implementation
+    GENERATE missing documents from project context + existing SPARC docs
+    COMMIT "docs(feature): complete SPARC docs for <feature-name>"
+    RE-CHECK (must pass before /go proceeds to implementation)
+
+  ✅ SPARC Completeness Gate PASSED — proceed to implementation
+```
+
 ## Audit Step (INS-007 compliance)
 
 After each feature completion, verify documentation exists:
 ```
-CHECK: docs/features/<feature-name>/sparc/ EXISTS
-  → If missing AND /go used /feature pipeline: WARNING — docs were skipped
-  → Log to stdout: "⚠️ Feature <name> missing SPARC docs — INS-007 violation"
+CHECK: docs/features/<feature-name>/sparc/ has ALL 5 mandatory files:
+  PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md
+  → If any missing: ❌ "Feature <name> has incomplete SPARC docs — INS-007 violation"
+CHECK: docs/features/<feature-name>/sparc/validation-report.md EXISTS
+CHECK: docs/features/<feature-name>/review-report.md EXISTS
 ```
 
 After all features complete, generate coverage matrix:
 ```
-📋 Documentation Coverage:
-   ✅ feature-1: sparc/ ✓, validation-report ✓, review-report ✓
-   ⚠️ feature-2: sparc/ ✓, validation-report ✓, review-report ✗
-   ❌ feature-3: sparc/ ✗, validation-report ✗, review-report ✗
+📋 Documentation Coverage (7 artifacts per feature):
+   ✅ feature-1: 5/5 sparc ✓, validation-report ✓, review-report ✓
+   ⚠️ feature-2: 5/5 sparc ✓, validation-report ✓, review-report ✗
+   ❌ feature-3: 3/5 sparc ✗, validation-report ✗, review-report ✗
 
-   Coverage: 2/3 features fully documented (67%)
+   Coverage: 1/3 features fully documented (33%)
 ```

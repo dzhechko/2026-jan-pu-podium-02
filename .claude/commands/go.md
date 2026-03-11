@@ -75,10 +75,18 @@ Then evaluate the feature to determine the right pipeline:
 
 ### If `/plan` selected:
 1. Run `/plan <feature-name>`
-2. After plan is saved, immediately implement it
-3. Use `Task` tool to parallelize independent changes
-4. Run tests after implementation
-5. Commit and push: `git push origin HEAD`
+2. **SPARC Completeness Gate** (mandatory even for /plan):
+   ```
+   CHECK docs/features/<feature-name>/sparc/ for 5 mandatory files:
+     PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md
+   IF any missing:
+     GENERATE missing docs from project context
+     COMMIT "docs(feature): complete SPARC docs for <feature-name>"
+   ```
+3. After plan is saved and SPARC gate passes, implement
+4. Use `Task` tool to parallelize independent changes
+5. Run tests after implementation
+6. Commit and push: `git push origin HEAD`
 
 ### If `/feature` selected:
 1. Run `/feature <feature-name>` in AUTO mode (no confirmations between phases)

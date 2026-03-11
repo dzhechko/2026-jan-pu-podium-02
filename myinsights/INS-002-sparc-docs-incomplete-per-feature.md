@@ -42,44 +42,53 @@ When `/run mvp` generates SPARC documentation for each feature before implementa
 ### Immediate (applied)
 Manually created all missing Architecture.md + Refinement.md + Specification.md docs for 8 features.
 
-### Prevention (pipeline changes needed)
+### Prevention — SPARC Completeness Gate (IMPLEMENTED)
 
-1. **Add doc count gate to `/go` and `/run` pipelines:**
-```
-BEFORE implementation phase:
-  CHECK docs/features/{name}/sparc/ has >= 5 files:
-    PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md
-  IF missing → generate before proceeding
-  BLOCK implementation until gate passes
-```
+Hard gate added to 4 pipeline files. Runs BEFORE implementation, not after.
 
-2. **Update `/run` loop to include doc validation:**
-```
-After doc generation, before implementation:
-  count = ls docs/features/{name}/sparc/*.md | wc -l
-  IF count < 5:
-    WARN "Only {count}/5 SPARC docs — generating missing"
-    Generate remaining docs
-```
+**Files modified:**
+1. `.claude/rules/feature-lifecycle.md` — new "SPARC Completeness Gate" section between Phase 1 and Phase 2
+2. `.claude/commands/feature.md` — hard gate after Phase 1, before Phase 2
+3. `.claude/commands/go.md` — gate in `/plan` branch (previously had no doc checks at all)
+4. `.claude/commands/run.md` — pre-implementation gate + enhanced audit with 7-artifact check
 
-3. **Add SPARC doc checklist to `feature-lifecycle.md`:**
-```markdown
-### Mandatory SPARC Documents (no exceptions)
-- [ ] PRD.md
-- [ ] Specification.md
-- [ ] Pseudocode.md
-- [ ] Architecture.md
-- [ ] Refinement.md
+**Gate logic (identical in all 4 files):**
+```
+AFTER Phase 1 (doc generation) completes:
+  missing = []
+  FOR doc IN [PRD.md, Specification.md, Pseudocode.md, Architecture.md, Refinement.md]:
+    IF NOT exists docs/features/<feature-name>/sparc/{doc}:
+      missing.append(doc)
+
+  IF missing is not empty:
+    ⛔ BLOCK implementation
+    GENERATE missing documents from project context + existing SPARC docs
+    COMMIT "docs(feature): complete SPARC docs for <feature-name>"
+    RE-CHECK (must pass before proceeding)
+
+  ✅ SPARC Completeness Gate PASSED — 5/5 mandatory docs present
 ```
 
-4. **Consider template-based generation** — Pre-fill section headers for each doc type so the AI has structure to follow, reducing the chance of skipping docs.
+### Upstream fix needed: cc-toolkit-generator-enhanced
+
+**The real fix belongs in `cc-toolkit-generator-enhanced`** — the skill that generates `/feature`, `/go`, `/run` commands for new projects. Currently it generates commands WITHOUT the SPARC Completeness Gate, so every new project created by `/replicate` will have the same gap.
+
+**Recommended changes to cc-toolkit-generator-enhanced:**
+1. Module `04-generate-p1.md` (commands generation) — include SPARC Completeness Gate in generated `/feature.md` template
+2. Module `04-generate-p1.md` — include gate in generated `/go.md` template (especially the `/plan` branch)
+3. Module `04-generate-p1.md` — include pre-implementation gate in generated `/run.md` template
+4. Module `05-generate-p2.md` (rules generation) — include gate in generated `feature-lifecycle.md` template
+5. Add to quality gate checklist: "Generated commands include SPARC Completeness Gate? [REQUIRED]"
+
+**Why this matters:** Without upstream fix, every `/replicate` creates projects with the same doc completeness gap. Fixing it in cc-toolkit-generator-enhanced means ALL future projects get the gate by default.
 
 ## Error Signatures
 
-`SPARC docs incomplete`, `missing Architecture.md`, `missing Refinement.md`, `only 2 docs`, `only 3 docs`, `feature docs incomplete`, `INS-007 violation`
+`SPARC docs incomplete`, `missing Architecture.md`, `missing Refinement.md`, `only 2 docs`, `only 3 docs`, `feature docs incomplete`, `INS-007 violation`, `SPARC Completeness Gate FAILED`
 
 ## Related
 
 - INS-001: Same pattern — autonomous execution pressure causes quality shortcuts
-- `.claude/rules/feature-lifecycle.md`: Has skip rules but no enforcement
-- `docs/features/*/sparc/`: All 8 feature directories affected
+- `.claude/rules/feature-lifecycle.md`: Now has enforcement via SPARC Completeness Gate
+- `.claude/skills/cc-toolkit-generator-enhanced/`: Upstream fix needed
+- `docs/features/*/sparc/`: All 8 feature directories were affected, now fixed
