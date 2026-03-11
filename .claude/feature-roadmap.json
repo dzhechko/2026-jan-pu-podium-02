@@ -24,7 +24,7 @@
       "id": "company-profile",
       "name": "Company Profile Setup",
       "description": "Company settings, Yandex Maps URL, discount config (US-003)",
-      "status": "next",
+      "status": "done",
       "files": ["packages/api/src/modules/settings/"],
       "depends_on": ["admin-auth"],
       "sprint": "MVP"
@@ -33,7 +33,7 @@
       "id": "client-management",
       "name": "Client Management",
       "description": "CRUD clients, CSV import, phone encryption (US-002)",
-      "status": "planned",
+      "status": "next",
       "files": ["packages/api/src/modules/clients/"],
       "depends_on": ["admin-auth"],
       "sprint": "MVP"
