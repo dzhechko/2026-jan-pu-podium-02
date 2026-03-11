@@ -1,9 +1,15 @@
-import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
+import type { SentimentService } from '../sentiment/service.js';
 import type { SubmitReviewInput, ListReviewsQuery } from './schema.js';
 
 export class ReviewService {
+  private sentimentService: SentimentService | null = null;
+
   constructor(private prisma: PrismaClient) {}
+
+  setSentimentService(service: SentimentService) {
+    this.sentimentService = service;
+  }
 
   async getFormData(token: string) {
     const request = await this.prisma.reviewRequest.findUnique({
@@ -70,42 +76,33 @@ export class ReviewService {
       },
     });
 
-    // Simple star-based routing (LLM sentiment overrides later)
-    const isPositive = input.stars >= 4;
-    let redirectUrl: string | null = null;
-    let promoCode: string | null = null;
+    // Run sentiment analysis (LLM with star-rating fallback)
+    const sentimentResult = this.sentimentService
+      ? await this.sentimentService.analyzeAndRoute(review.id)
+      : null;
 
-    if (isPositive && request.admin.yandexMapsUrl) {
-      redirectUrl = request.admin.yandexMapsUrl;
-    } else {
-      promoCode = generatePromoCode();
+    const sentiment = sentimentResult?.sentiment ?? (input.stars >= 4 ? 'POSITIVE' : 'NEGATIVE');
+    const routedTo = sentimentResult?.routed_to ?? (input.stars >= 4 ? 'YANDEX_REDIRECT' : 'INTERNAL_HIDDEN');
+    const promoCode = sentimentResult?.promo_code ?? null;
+    const redirectUrl = routedTo === 'YANDEX_REDIRECT' && request.admin.yandexMapsUrl
+      ? request.admin.yandexMapsUrl
+      : null;
+
+    // Update if sentiment service wasn't available
+    if (!sentimentResult) {
       await this.prisma.review.update({
         where: { id: review.id },
-        data: {
-          sentiment: 'NEGATIVE',
-          routedTo: 'INTERNAL_HIDDEN',
-          promoCode,
-        },
-      });
-    }
-
-    if (isPositive) {
-      await this.prisma.review.update({
-        where: { id: review.id },
-        data: {
-          sentiment: 'POSITIVE',
-          routedTo: 'YANDEX_REDIRECT',
-        },
+        data: { sentiment, routedTo, sentimentConfidence: 0.5 },
       });
     }
 
     return {
       data: {
-        sentiment: isPositive ? 'POSITIVE' : 'NEGATIVE',
+        sentiment,
         redirect_url: redirectUrl,
         promo_code: promoCode,
-        discount_text: !isPositive ? request.admin.discountText : null,
-        discount_percent: !isPositive ? request.admin.discountPercent : null,
+        discount_text: routedTo === 'INTERNAL_HIDDEN' ? request.admin.discountText : null,
+        discount_percent: routedTo === 'INTERNAL_HIDDEN' ? request.admin.discountPercent : null,
       },
     };
   }
@@ -167,8 +164,4 @@ export class ReviewService {
       meta: { total, page: query.page, limit: query.limit },
     };
   }
-}
-
-function generatePromoCode(): string {
-  return 'RH-' + randomBytes(4).toString('hex').toUpperCase();
 }

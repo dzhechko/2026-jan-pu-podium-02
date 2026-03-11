@@ -19,6 +19,8 @@ import { ReviewRequestService } from './modules/sms/service.js';
 import { smsRoutes } from './modules/sms/routes.js';
 import { ReviewService } from './modules/reviews/service.js';
 import { reviewRoutes } from './modules/reviews/routes.js';
+import { LlmService } from './services/llm.js';
+import { SentimentService } from './modules/sentiment/service.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -79,8 +81,13 @@ const smscService = new SmscService(env.SMSC_LOGIN, env.SMSC_PASSWORD, env.SMSC_
 const reviewRequestService = new ReviewRequestService(prisma, smscService, encryptionService, env.PWA_URL);
 await smsRoutes(app, reviewRequestService, authenticate);
 
+// Sentiment analysis
+const llmService = new LlmService(env.ANTHROPIC_API_KEY);
+const sentimentService = new SentimentService(prisma, llmService);
+
 // Review routes (public + admin)
 const reviewService = new ReviewService(prisma);
+reviewService.setSentimentService(sentimentService);
 await reviewRoutes(app, reviewService, authenticate);
 
 // Graceful shutdown
