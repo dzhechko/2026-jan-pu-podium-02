@@ -17,6 +17,8 @@ import { clientsRoutes } from './modules/clients/routes.js';
 import { SmscService } from './services/smsc.js';
 import { ReviewRequestService } from './modules/sms/service.js';
 import { smsRoutes } from './modules/sms/routes.js';
+import { ReviewService } from './modules/reviews/service.js';
+import { reviewRoutes } from './modules/reviews/routes.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -76,6 +78,10 @@ await clientsRoutes(app, clientsService, authenticate);
 const smscService = new SmscService(env.SMSC_LOGIN, env.SMSC_PASSWORD, env.SMSC_SENDER);
 const reviewRequestService = new ReviewRequestService(prisma, smscService, encryptionService, env.PWA_URL);
 await smsRoutes(app, reviewRequestService, authenticate);
+
+// Review routes (public + admin)
+const reviewService = new ReviewService(prisma);
+await reviewRoutes(app, reviewService, authenticate);
 
 // Graceful shutdown
 app.addHook('onClose', async () => {
