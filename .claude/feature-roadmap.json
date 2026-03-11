@@ -87,7 +87,7 @@
       "id": "cascade-reminders",
       "name": "Cascade Reminders",
       "description": "4-step SMS cascade (2h→24h→3d→7d), cancellation on review/opt-out (US-011, US-012)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/api/src/services/reminder.ts"],
       "depends_on": ["sms-integration"],
       "sprint": "v1.0"

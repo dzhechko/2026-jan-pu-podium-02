@@ -23,6 +23,7 @@ import { LlmService } from './services/llm.js';
 import { SentimentService } from './modules/sentiment/service.js';
 import { AnalyticsService } from './modules/analytics/service.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
+import { ReminderService } from './services/reminder.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -96,8 +97,16 @@ await reviewRoutes(app, reviewService, authenticate);
 const analyticsService = new AnalyticsService(prisma);
 await analyticsRoutes(app, analyticsService, authenticate);
 
+// Cascade reminder scheduler
+const reminderService = new ReminderService(prisma, smscService, encryptionService, env.PWA_URL, {
+  info: (msg) => app.log.info(msg),
+  error: (msg, err) => app.log.error({ err }, msg),
+});
+reminderService.startScheduler();
+
 // Graceful shutdown
 app.addHook('onClose', async () => {
+  reminderService.stopScheduler();
   await prisma.$disconnect();
 });
 
