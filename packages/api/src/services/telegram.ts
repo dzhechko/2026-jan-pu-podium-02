@@ -72,4 +72,43 @@ export class TelegramProvider {
       return null;
     }
   }
+
+  async setWebhook(url: string, secretToken: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          secret_token: secretToken,
+          allowed_updates: ['message'],
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const data = (await response.json()) as TelegramResponse;
+
+      if (data.ok) {
+        return { success: true };
+      }
+
+      return { success: false, error: data.description ?? 'Failed to set Telegram webhook' };
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
+  }
+
+  async deleteWebhook(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/deleteWebhook`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const data = (await response.json()) as TelegramResponse;
+      return data.ok === true;
+    } catch {
+      return false;
+    }
+  }
 }

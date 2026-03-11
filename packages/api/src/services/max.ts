@@ -83,4 +83,43 @@ export class MaxProvider {
       return null;
     }
   }
+
+  async subscribe(url: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/subscriptions?access_token=${this.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          update_types: ['message_created'],
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const data = (await response.json()) as MaxSendResponse;
+
+      if (response.ok) {
+        return { success: true };
+      }
+
+      return { success: false, error: data.error ?? data.description ?? 'Failed to subscribe Max webhook' };
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
+  }
+
+  async unsubscribe(url: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/subscriptions?access_token=${this.token}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
 }
