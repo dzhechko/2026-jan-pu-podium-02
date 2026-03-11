@@ -21,6 +21,8 @@ import { ReviewService } from './modules/reviews/service.js';
 import { reviewRoutes } from './modules/reviews/routes.js';
 import { LlmService } from './services/llm.js';
 import { SentimentService } from './modules/sentiment/service.js';
+import { AnalyticsService } from './modules/analytics/service.js';
+import { analyticsRoutes } from './modules/analytics/routes.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -89,6 +91,10 @@ const sentimentService = new SentimentService(prisma, llmService);
 const reviewService = new ReviewService(prisma);
 reviewService.setSentimentService(sentimentService);
 await reviewRoutes(app, reviewService, authenticate);
+
+// Analytics routes
+const analyticsService = new AnalyticsService(prisma);
+await analyticsRoutes(app, analyticsService, authenticate);
 
 // Graceful shutdown
 app.addHook('onClose', async () => {
