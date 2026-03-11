@@ -13,6 +13,12 @@
         "matcher": "",
         "command": "bash -c '\nPLANS=\"docs/plans\"\nif [ -d \"$PLANS\" ] && (git diff --name-only -- \"$PLANS\" 2>/dev/null | grep -q . || git diff --name-only --cached -- \"$PLANS\" 2>/dev/null | grep -q . || git ls-files --others --exclude-standard -- \"$PLANS\" 2>/dev/null | grep -q .); then\n  git add \"$PLANS\"\n  git commit -m \"docs(plans): update implementation plans\"\n  echo \"docs/plans/ auto-committed\"\nfi\n'"
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "command": "python3 .claude/hooks/feature-context.py"
+      }
     ]
   }
 }

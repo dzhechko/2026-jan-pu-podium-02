@@ -102,6 +102,7 @@ Available lifecycle skills in `.claude/skills/`:
 | /deploy [env] | Deploy to environment |
 | /myinsights [title] | Capture development insight to knowledge base |
 | /docs [rus\|eng] | Generate bilingual documentation |
+| /next [id] | Show roadmap, suggest next task, mark done |
 | /replicate | Full pipeline (already done) |
 | /harvest | Extract reusable knowledge |
 
@@ -123,6 +124,17 @@ Capture new findings: `/myinsights [title]`
 - Star rating fallback: ≥ 4 stars = positive when LLM unavailable
 - SMS batch size: 50 per SMSC.ru API call
 - Reminder timing: 2h, 24h, 3d, 7d from initial SMS
+
+## Feature Roadmap
+
+Roadmap: [.claude/feature-roadmap.json](.claude/feature-roadmap.json) — single source of truth for feature status.
+Sprint progress and next steps are injected automatically at session start.
+Quick check: `/next` | Full overview: ask "what should I work on?"
+Mark done: `/next [feature-id]` | Update all: `/next update`
+
+## Implementation Plans
+
+Plans: `docs/plans/` — auto-committed on session end.
 
 ## SPARC Documentation
 
