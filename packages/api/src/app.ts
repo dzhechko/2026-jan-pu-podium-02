@@ -8,6 +8,8 @@ import { loadEnv } from './config/env.js';
 import { AuthService } from './modules/auth/service.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { createAuthMiddleware } from './modules/auth/middleware.js';
+import { SettingsService } from './modules/settings/service.js';
+import { settingsRoutes } from './modules/settings/routes.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -49,6 +51,10 @@ app.get('/api/health', async () => ({
 
 // Auth routes
 await authRoutes(app, authService);
+
+// Settings routes
+const settingsService = new SettingsService(prisma);
+await settingsRoutes(app, settingsService, authenticate);
 
 // Graceful shutdown
 app.addHook('onClose', async () => {
