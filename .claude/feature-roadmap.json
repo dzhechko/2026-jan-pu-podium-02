@@ -78,7 +78,7 @@
       "id": "analytics-dashboard",
       "name": "Analytics Dashboard",
       "description": "SMS stats, review counts, conversion rate, rating trend (US-006, US-007)",
-      "status": "next",
+      "status": "done",
       "files": ["packages/api/src/modules/analytics/", "packages/admin/src/pages/analytics/"],
       "depends_on": ["review-routing"],
       "sprint": "MVP"
@@ -105,7 +105,7 @@
       "id": "admin-panel-ui",
       "name": "Admin Panel UI",
       "description": "Full React admin panel: dashboard, clients, reviews, settings pages",
-      "status": "next",
+      "status": "done",
       "files": ["packages/admin/src/"],
       "depends_on": ["admin-auth", "client-management"],
       "sprint": "MVP"
