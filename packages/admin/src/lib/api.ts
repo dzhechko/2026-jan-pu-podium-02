@@ -7,7 +7,7 @@ export async function apiClient<T>(
   const token = localStorage.getItem('token');
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string>),
   };
 

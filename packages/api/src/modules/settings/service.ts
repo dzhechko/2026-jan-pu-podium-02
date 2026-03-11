@@ -20,12 +20,14 @@ export class SettingsService {
 
   async getSettings(adminId: string) {
     const admin = await this.prisma.admin.findUniqueOrThrow({ where: { id: adminId } });
+    const { channels } = await this.getChannels(adminId);
     return {
       company_name: admin.companyName,
       yandex_maps_url: admin.yandexMapsUrl,
       yandex_org_id: admin.yandexOrgId,
       discount_percent: admin.discountPercent,
       discount_text: admin.discountText,
+      channels,
     };
   }
 

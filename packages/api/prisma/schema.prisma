@@ -101,9 +101,9 @@ model Review {
   promoCode         String?  @map("promo_code") @db.VarChar(20)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  reviewRequest     ReviewRequest @relation(fields: [reviewRequestId], references: [id])
+  reviewRequest     ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
   admin             Admin         @relation(fields: [adminId], references: [id])
-  client            Client        @relation(fields: [clientId], references: [id])
+  client            Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
   @@map("reviews")
@@ -123,7 +123,7 @@ model SmsLog {
   deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz()
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
-  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id])
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
 
   @@index([channel])
   @@map("sms_logs")

@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
 
+interface ChannelEntry {
+  type: string;
+  configured: boolean;
+  bot_username?: string;
+  bot_name?: string;
+}
+
 interface SettingsData {
   data: {
     company_name: string;
@@ -9,12 +16,12 @@ interface SettingsData {
     yandex_org_id: string | null;
     discount_percent: number;
     discount_text: string;
+    channels?: ChannelEntry[];
   };
-  channels?: {
-    sms?: { enabled: boolean; status: string };
-    telegram?: { enabled: boolean; status: string; bot_username?: string };
-    max?: { enabled: boolean; status: string; bot_name?: string };
-  };
+}
+
+function findChannel(channels: ChannelEntry[] | undefined, type: string): ChannelEntry | undefined {
+  return channels?.find((ch) => ch.type === type);
 }
 
 export function Settings() {
@@ -54,11 +61,13 @@ export function Settings() {
         discount_text: data.data.discount_text,
       });
     }
-    if (data?.channels?.telegram?.bot_username) {
-      setTelegramBotUsername(data.channels.telegram.bot_username);
+    const tg = findChannel(data?.data?.channels, 'telegram');
+    if (tg?.bot_username) {
+      setTelegramBotUsername(tg.bot_username);
     }
-    if (data?.channels?.max?.bot_name) {
-      setMaxBotName(data.channels.max.bot_name);
+    const mx = findChannel(data?.data?.channels, 'max');
+    if (mx?.bot_name) {
+      setMaxBotName(mx.bot_name);
     }
   }, [data]);
 
@@ -73,11 +82,13 @@ export function Settings() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      if (result?.channels?.telegram?.bot_username) {
-        setTelegramBotUsername(result.channels.telegram.bot_username);
+      const tg = findChannel(result?.data?.channels, 'telegram');
+      if (tg?.bot_username) {
+        setTelegramBotUsername(tg.bot_username);
       }
-      if (result?.channels?.max?.bot_name) {
-        setMaxBotName(result.channels.max.bot_name);
+      const mx = findChannel(result?.data?.channels, 'max');
+      if (mx?.bot_name) {
+        setMaxBotName(mx.bot_name);
       }
     },
   });
@@ -93,8 +104,9 @@ export function Settings() {
       });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      if (result?.channels?.telegram?.bot_username) {
-        setTelegramBotUsername(result.channels.telegram.bot_username);
+      const tg = findChannel(result?.data?.channels, 'telegram');
+      if (tg?.bot_username) {
+        setTelegramBotUsername(tg.bot_username);
       } else {
         setTelegramError('Не удалось получить имя бота');
       }
@@ -116,8 +128,9 @@ export function Settings() {
       });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      if (result?.channels?.max?.bot_name) {
-        setMaxBotName(result.channels.max.bot_name);
+      const mx = findChannel(result?.data?.channels, 'max');
+      if (mx?.bot_name) {
+        setMaxBotName(mx.bot_name);
       } else {
         setMaxError('Не удалось получить имя бота');
       }

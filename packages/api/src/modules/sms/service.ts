@@ -75,11 +75,15 @@ export class ReviewRequestService {
         }
         // Append bot deep links to SMS if bot configured and client not yet linked
         if (ch === 'sms') {
+          const botLinks: string[] = [];
           if (admin.telegramBotUsername && !client.telegramChatIdEncrypted) {
-            msg += `\nTelegram: t.me/${admin.telegramBotUsername}?start=${client.id}`;
+            botLinks.push(`Telegram: t.me/${admin.telegramBotUsername}?start=${client.id}`);
           }
           if (admin.maxBotName && !client.maxChatIdEncrypted) {
-            msg += `\nMax: max.ru/${admin.maxBotName}?start=${client.id}`;
+            botLinks.push(`Max: max.ru/${admin.maxBotName}?start=${client.id}`);
+          }
+          if (botLinks.length > 0) {
+            msg += `\n\n📲 Получайте уведомления без SMS — подпишитесь на наш бот:\n${botLinks.join('\n')}`;
           }
         }
         return msg;
