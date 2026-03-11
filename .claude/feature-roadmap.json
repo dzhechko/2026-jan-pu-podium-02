@@ -33,7 +33,7 @@
       "id": "client-management",
       "name": "Client Management",
       "description": "CRUD clients, CSV import, phone encryption (US-002)",
-      "status": "next",
+      "status": "done",
       "files": ["packages/api/src/modules/clients/"],
       "depends_on": ["admin-auth"],
       "sprint": "MVP"
@@ -42,7 +42,7 @@
       "id": "sms-integration",
       "name": "SMS Integration",
       "description": "SMSC.ru API wrapper, send review requests, delivery tracking (US-004, US-010)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/api/src/modules/sms/", "packages/api/src/services/smsc.ts"],
       "depends_on": ["client-management"],
       "sprint": "MVP"
@@ -51,7 +51,7 @@
       "id": "pwa-review-form",
       "name": "PWA Review Form",
       "description": "Mobile form: stars + text, company branding, discount display (US-014, US-015, US-016)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/pwa/src/"],
       "depends_on": ["sms-integration"],
       "sprint": "MVP"
@@ -60,7 +60,7 @@
       "id": "sentiment-analysis",
       "name": "Sentiment Analysis",
       "description": "LLM API integration, sentiment routing, star fallback (US-019, US-020, US-021)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/api/src/modules/sentiment/", "packages/api/src/services/llm.ts"],
       "depends_on": ["pwa-review-form"],
       "sprint": "MVP"
@@ -69,7 +69,7 @@
       "id": "review-routing",
       "name": "Review Routing",
       "description": "Positive → Yandex redirect, negative → hidden section, promo codes (US-017, US-022)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/api/src/modules/reviews/"],
       "depends_on": ["sentiment-analysis"],
       "sprint": "MVP"
@@ -78,7 +78,7 @@
       "id": "analytics-dashboard",
       "name": "Analytics Dashboard",
       "description": "SMS stats, review counts, conversion rate, rating trend (US-006, US-007)",
-      "status": "planned",
+      "status": "next",
       "files": ["packages/api/src/modules/analytics/", "packages/admin/src/pages/analytics/"],
       "depends_on": ["review-routing"],
       "sprint": "MVP"
@@ -105,7 +105,7 @@
       "id": "admin-panel-ui",
       "name": "Admin Panel UI",
       "description": "Full React admin panel: dashboard, clients, reviews, settings pages",
-      "status": "planned",
+      "status": "next",
       "files": ["packages/admin/src/"],
       "depends_on": ["admin-auth", "client-management"],
       "sprint": "MVP"
