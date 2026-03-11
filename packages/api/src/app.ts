@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import { PrismaClient } from '@prisma/client';
 import { loadEnv } from './config/env.js';
 import { AuthService } from './modules/auth/service.js';
@@ -10,6 +11,9 @@ import { authRoutes } from './modules/auth/routes.js';
 import { createAuthMiddleware } from './modules/auth/middleware.js';
 import { SettingsService } from './modules/settings/service.js';
 import { settingsRoutes } from './modules/settings/routes.js';
+import { EncryptionService } from './services/encryption.js';
+import { ClientsService } from './modules/clients/service.js';
+import { clientsRoutes } from './modules/clients/routes.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -42,6 +46,10 @@ await app.register(cookie, {
   secret: env.JWT_SECRET,
 });
 
+await app.register(multipart, {
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
 // Health check
 app.get('/api/health', async () => ({
   status: 'ok',
@@ -55,6 +63,11 @@ await authRoutes(app, authService);
 // Settings routes
 const settingsService = new SettingsService(prisma);
 await settingsRoutes(app, settingsService, authenticate);
+
+// Clients routes
+const encryptionService = new EncryptionService(env.ENCRYPTION_KEY);
+const clientsService = new ClientsService(prisma, encryptionService);
+await clientsRoutes(app, clientsService, authenticate);
 
 // Graceful shutdown
 app.addHook('onClose', async () => {
