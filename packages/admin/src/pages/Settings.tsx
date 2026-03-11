@@ -192,13 +192,25 @@ export function Settings() {
 
         {/* Каналы доставки */}
         <div className="border-t pt-4 mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Каналы доставки</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Каналы доставки</h3>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs text-blue-800 space-y-1">
+            <p className="font-medium">Как работают мессенджеры?</p>
+            <p>Бот отправляет сообщения <strong>напрямую клиенту</strong> в личный чат (не в группы).</p>
+            <p>Клиент должен первым написать вашему боту (нажать /start), чтобы бот мог отправлять ему сообщения.</p>
+            <p>Если канал недоступен, сообщение автоматически отправится по SMS.</p>
+          </div>
 
           {/* Telegram */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Telegram Bot Token
             </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Создайте бота через{' '}
+              <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">@BotFather</a>
+              {' '}в Telegram. Отправьте команду <code className="bg-gray-100 px-1 rounded">/newbot</code>,
+              следуйте инструкциям — BotFather выдаст токен вида <code className="bg-gray-100 px-1 rounded">123456789:ABCdef...</code>
+            </p>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
@@ -251,6 +263,11 @@ export function Settings() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Max Bot Token
             </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Создайте бота на{' '}
+              <a href="https://botapi.max.ru" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">botapi.max.ru</a>.
+              {' '}После создания скопируйте токен из настроек бота.
+            </p>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input

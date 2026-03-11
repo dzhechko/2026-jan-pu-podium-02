@@ -139,18 +139,29 @@ export function Clients() {
               className="border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input
-              placeholder="Telegram Chat ID (опционально)"
-              value={form.telegram_chat_id}
-              onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Max Chat ID (опционально)"
-              value={form.max_chat_id}
-              onChange={(e) => setForm({ ...form, max_chat_id: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
-            />
+            <div>
+              <input
+                placeholder="Telegram Chat ID (опционально)"
+                value={form.telegram_chat_id}
+                onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
+                className="border rounded-lg px-3 py-2 text-sm w-full"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Числовой ID чата. Клиент должен написать /start вашему боту, затем узнать ID через{' '}
+                <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">@userinfobot</a>
+              </p>
+            </div>
+            <div>
+              <input
+                placeholder="Max Chat ID (опционально)"
+                value={form.max_chat_id}
+                onChange={(e) => setForm({ ...form, max_chat_id: e.target.value })}
+                className="border rounded-lg px-3 py-2 text-sm w-full"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                ID чата в Max. Клиент должен написать вашему боту, ID можно получить из webhook-событий бота.
+              </p>
+            </div>
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
