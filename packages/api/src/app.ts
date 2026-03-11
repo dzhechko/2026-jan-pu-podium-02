@@ -26,6 +26,8 @@ import { AnalyticsService } from './modules/analytics/service.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
 import { ReminderService } from './services/reminder.js';
 import { MessageGateway } from './services/message-gateway.js';
+import { WebhookService } from './modules/webhooks/service.js';
+import { webhookRoutes } from './modules/webhooks/routes.js';
 
 const env = loadEnv();
 const prisma = new PrismaClient();
@@ -75,8 +77,17 @@ await authRoutes(app, authService);
 // Shared services
 const encryptionService = new EncryptionService(env.ENCRYPTION_KEY);
 
+// Webhook routes (public — no auth, receives POST from Telegram/Max servers)
+const webhookService = new WebhookService(prisma, encryptionService, env.WEBHOOK_SECRET, env.API_BASE_URL, {
+  info: (msg) => app.log.info(msg),
+  warn: (msg) => app.log.warn(msg),
+  error: (msg) => app.log.error(msg),
+});
+await webhookRoutes(app, webhookService);
+
 // Settings routes
 const settingsService = new SettingsService(prisma, encryptionService);
+settingsService.setWebhookService(webhookService);
 await settingsRoutes(app, settingsService, authenticate);
 
 // Clients routes

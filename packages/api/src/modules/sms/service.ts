@@ -67,10 +67,17 @@ export class ReviewRequestService {
 
       // Build message fetcher (re-fetches per channel for fallback - AC-9)
       const messageFetcher = async (ch: string): Promise<string> => {
+        let msg: string;
         if (this.templateService) {
-          return this.templateService.getMessage(adminId, 0, admin.companyName, link, optout, ch);
+          msg = await this.templateService.getMessage(adminId, 0, admin.companyName, link, optout, ch);
+        } else {
+          msg = `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
         }
-        return `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
+        // Append bot deep link to SMS if bot configured and client not yet linked
+        if (ch === 'sms' && admin.telegramBotUsername && !client.telegramChatIdEncrypted) {
+          msg += `\nTelegram: t.me/${admin.telegramBotUsername}?start=${client.id}`;
+        }
+        return msg;
       };
 
       // Send via gateway (per-admin providers, handles fallback + template re-fetch)

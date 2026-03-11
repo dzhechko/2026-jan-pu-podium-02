@@ -4,12 +4,19 @@ import { extractYandexOrgId } from './schema.js';
 import type { EncryptionService } from '../../services/encryption.js';
 import { TelegramProvider } from '../../services/telegram.js';
 import { MaxProvider } from '../../services/max.js';
+import type { WebhookService } from '../webhooks/service.js';
 
 export class SettingsService {
+  private webhookService?: WebhookService;
+
   constructor(
     private prisma: PrismaClient,
     private encryption: EncryptionService,
   ) {}
+
+  setWebhookService(ws: WebhookService) {
+    this.webhookService = ws;
+  }
 
   async getSettings(adminId: string) {
     const admin = await this.prisma.admin.findUniqueOrThrow({ where: { id: adminId } });
@@ -47,6 +54,18 @@ export class SettingsService {
       where: { id: adminId },
       data,
     });
+
+    // Register webhooks after token save
+    if (this.webhookService) {
+      if (input.telegram_bot_token) {
+        this.webhookService.registerWebhook(admin.id, 'telegram', input.telegram_bot_token)
+          .catch((err) => console.warn('Telegram webhook registration failed:', err));
+      }
+      if (input.max_bot_token) {
+        this.webhookService.registerWebhook(admin.id, 'max', input.max_bot_token)
+          .catch((err) => console.warn('Max webhook registration failed:', err));
+      }
+    }
 
     // Include channel status in response
     const channels = await this.getChannels(adminId);

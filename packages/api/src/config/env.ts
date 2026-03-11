@@ -14,6 +14,8 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().min(64, 'ENCRYPTION_KEY must be at least 64 hex characters'),
   APP_URL: z.string().default('http://localhost:5173'),
   PWA_URL: z.string().default('http://localhost:5174'),
+  WEBHOOK_SECRET: z.string().default('dev-webhook-secret-minimum-32-chars'),
+  API_BASE_URL: z.string().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;
