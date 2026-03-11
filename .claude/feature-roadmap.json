@@ -6,7 +6,7 @@
       "id": "project-setup",
       "name": "Project Setup",
       "description": "Bootstrap monorepo: packages/api, packages/admin, packages/pwa, Prisma schema, Docker",
-      "status": "next",
+      "status": "done",
       "files": ["packages/api/", "packages/admin/", "packages/pwa/", "prisma/schema.prisma"],
       "depends_on": [],
       "sprint": "MVP"
@@ -15,7 +15,7 @@
       "id": "admin-auth",
       "name": "Admin Authentication",
       "description": "Registration, login, JWT tokens, refresh, rate limiting (US-001)",
-      "status": "next",
+      "status": "done",
       "files": ["packages/api/src/modules/auth/"],
       "depends_on": ["project-setup"],
       "sprint": "MVP"
@@ -24,7 +24,7 @@
       "id": "company-profile",
       "name": "Company Profile Setup",
       "description": "Company settings, Yandex Maps URL, discount config (US-003)",
-      "status": "planned",
+      "status": "next",
       "files": ["packages/api/src/modules/settings/"],
       "depends_on": ["admin-auth"],
       "sprint": "MVP"
