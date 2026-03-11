@@ -10,5 +10,20 @@ export const listReviewRequestsSchema = z.object({
   status: z.string().optional(),
 });
 
+export const upsertSmsTemplateSchema = z.object({
+  reminder_number: z.number().int().min(0).max(4),
+  message_template: z
+    .string()
+    .min(10, 'Минимум 10 символов')
+    .max(500, 'Максимум 500 символов')
+    .refine((s) => s.includes('{link}'), { message: 'Шаблон должен содержать {link}' })
+    .refine((s) => s.includes('{optout}'), { message: 'Шаблон должен содержать {optout}' }),
+});
+
+export const deleteSmsTemplateParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export type SendReviewRequestsInput = z.infer<typeof sendReviewRequestsSchema>;
 export type ListReviewRequestsQuery = z.infer<typeof listReviewRequestsSchema>;
+export type UpsertSmsTemplateInput = z.infer<typeof upsertSmsTemplateSchema>;

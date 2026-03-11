@@ -29,7 +29,9 @@ export class SmscService {
     });
 
     try {
-      const response = await fetch(`https://smsc.ru/sys/send.php?${params}`);
+      const response = await fetch(`https://smsc.ru/sys/send.php?${params}`, {
+        signal: AbortSignal.timeout(10000),
+      });
       const data = await response.json() as Record<string, unknown>;
 
       if (data.error) {
