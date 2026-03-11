@@ -50,6 +50,7 @@ export function Clients() {
   });
   const [error, setError] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('sms');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients', page, search],
@@ -110,6 +111,33 @@ export function Clients() {
     return channels;
   };
 
+  const activeClients = data?.data.filter((c) => !c.opted_out) ?? [];
+  const allActiveSelected = activeClients.length > 0 && activeClients.every((c) => selectedIds.has(c.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allActiveSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(activeClients.map((c) => c.id)));
+    }
+  };
+
+  const handleBatchSend = () => {
+    if (selectedIds.size === 0) return;
+    sendMutation.mutate(
+      { clientIds: Array.from(selectedIds), channel: selectedChannel },
+      { onSuccess: () => setSelectedIds(new Set()) },
+    );
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -165,6 +193,27 @@ export function Clients() {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <span className="text-sm text-blue-700 font-medium">
+            Выбрано: {selectedIds.size}
+          </span>
+          <button
+            onClick={handleBatchSend}
+            disabled={sendMutation.isPending}
+            className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {sendMutation.isPending ? 'Отправка...' : `Отправить через ${CHANNEL_LABELS[selectedChannel] ?? selectedChannel}`}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Сбросить
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-gray-400">Загрузка...</div>
       ) : (
@@ -172,6 +221,14 @@ export function Clients() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allActiveSelected}
+                    onChange={toggleAll}
+                    className="rounded"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left">Имя</th>
                 <th className="px-4 py-3 text-left">Телефон</th>
                 <th className="px-4 py-3 text-left">Email</th>
@@ -182,7 +239,16 @@ export function Clients() {
             </thead>
             <tbody className="divide-y">
               {data?.data.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50">
+                <tr key={client.id} className={`hover:bg-gray-50 ${selectedIds.has(client.id) ? 'bg-blue-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(client.id)}
+                      onChange={() => toggleSelect(client.id)}
+                      disabled={client.opted_out}
+                      className="rounded disabled:opacity-30"
+                    />
+                  </td>
                   <td className="px-4 py-3">{client.name}</td>
                   <td className="px-4 py-3 font-mono text-xs">{client.phone}</td>
                   <td className="px-4 py-3 text-gray-500">{client.email ?? '-'}</td>
