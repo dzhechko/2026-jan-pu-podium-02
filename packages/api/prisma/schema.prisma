@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id             String   @id @default(uuid()) @db.Uuid
+  email          String   @unique @db.VarChar(255)
+  passwordHash   String   @map("password_hash") @db.VarChar(255)
+  companyName    String   @map("company_name") @db.VarChar(255)
+  phone          String   @db.VarChar(20)
+  yandexMapsUrl  String?  @map("yandex_maps_url")
+  yandexOrgId    String?  @map("yandex_org_id") @db.VarChar(100)
+  discountPercent Int     @default(10) @map("discount_percent")
+  discountText   String   @default("Скидка на следующий визит") @map("discount_text")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  clients        Client[]
+  smsTemplates   SmsTemplate[]
+  reviewRequests ReviewRequest[]
+  reviews        Review[]
+
+  @@map("admins")
+}
+
+model Client {
+  id             String   @id @default(uuid()) @db.Uuid
+  adminId        String   @map("admin_id") @db.Uuid
+  name           String   @db.VarChar(255)
+  phoneEncrypted Bytes    @map("phone_encrypted")
+  emailEncrypted Bytes?   @map("email_encrypted")
+  optedOut       Boolean  @default(false) @map("opted_out")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  admin          Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  reviewRequests ReviewRequest[]
+  reviews        Review[]
+
+  @@index([adminId])
+  @@map("clients")
+}
+
+model SmsTemplate {
+  id              String   @id @default(uuid()) @db.Uuid
+  adminId         String   @map("admin_id") @db.Uuid
+  reminderNumber  Int      @map("reminder_number")
+  messageTemplate String   @map("message_template")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  admin           Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("sms_templates")
+}
+
+model ReviewRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  adminId        String    @map("admin_id") @db.Uuid
+  clientId       String    @map("client_id") @db.Uuid
+  token          String    @unique @db.VarChar(64)
+  status         String    @default("PENDING") @db.VarChar(20)
+  reminderCount  Int       @default(0) @map("reminder_count")
+  smsSentAt      DateTime? @map("sms_sent_at") @db.Timestamptz()
+  nextReminderAt DateTime? @map("next_reminder_at") @db.Timestamptz()
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  admin          Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reviews        Review[]
+  smsLogs        SmsLog[]
+
+  @@index([token])
+  @@map("review_requests")
+}
+
+model Review {
+  id                String   @id @default(uuid()) @db.Uuid
+  reviewRequestId   String   @map("review_request_id") @db.Uuid
+  adminId           String   @map("admin_id") @db.Uuid
+  clientId          String   @map("client_id") @db.Uuid
+  stars             Int
+  text              String
+  sentiment         String?  @db.VarChar(10)
+  sentimentConfidence Float? @map("sentiment_confidence")
+  routedTo          String?  @map("routed_to") @db.VarChar(20)
+  promoCode         String?  @map("promo_code") @db.VarChar(20)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  reviewRequest     ReviewRequest @relation(fields: [reviewRequestId], references: [id])
+  admin             Admin         @relation(fields: [adminId], references: [id])
+  client            Client        @relation(fields: [clientId], references: [id])
+
+  @@index([adminId])
+  @@map("reviews")
+}
+
+model SmsLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  reviewRequestId String    @map("review_request_id") @db.Uuid
+  phoneMasked     String    @map("phone_masked") @db.VarChar(20)
+  messagePreview  String?   @map("message_preview") @db.VarChar(100)
+  smscMessageId   String?   @map("smsc_message_id") @db.VarChar(100)
+  status          String    @default("QUEUED") @db.VarChar(20)
+  reminderNumber  Int       @default(0) @map("reminder_number")
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz()
+  deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz()
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id])
+
+  @@map("sms_logs")
+}

@@ -1,0 +1,14 @@
+import { z } from 'zod';
+
+export const sendReviewRequestsSchema = z.object({
+  client_ids: z.array(z.string().uuid()).min(1, 'Выберите хотя бы одного клиента'),
+});
+
+export const listReviewRequestsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.string().optional(),
+});
+
+export type SendReviewRequestsInput = z.infer<typeof sendReviewRequestsSchema>;
+export type ListReviewRequestsQuery = z.infer<typeof listReviewRequestsSchema>;
