@@ -62,13 +62,50 @@
 
 Click the delete icon next to the client. Deletion is irreversible — all associated requests and reviews are also deleted.
 
+## Messenger Setup
+
+**Page:** Settings (`/settings`)
+
+ReviewHub supports SMS, Telegram, and Max channels.
+
+### Telegram
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) in Telegram
+2. Copy the bot token
+3. Paste the token in "Telegram Bot Token" on the Settings page
+4. The system will auto-validate the token and register a webhook
+5. Bot username will appear after successful setup
+
+### Max (max.ru)
+
+1. Create a bot in [Max](https://max.ru) settings
+2. Copy the bot token
+3. Paste the token in "Max Bot Token" on the Settings page
+4. The system will auto-validate and register a webhook
+
+### Automatic Client Linking
+
+Clients are automatically linked to messengers via deep links:
+- SMS messages include a link to your bot
+- When a client taps the link, they're auto-linked to the messenger
+- Future notifications arrive via messenger (free!)
+
 ## Sending Review Requests
 
 ### Single Send
 
 1. On the "Clients" page, find the desired client
-2. Click "Send SMS"
-3. Client receives an SMS with a link to the review form
+2. Select the send channel (SMS / Telegram / Max)
+3. Click the send button
+4. Client receives a message with a link to the review form
+
+### Batch Send
+
+1. On the "Clients" page, check the desired clients with checkboxes
+2. Use "Select All" to select all active clients
+3. Choose the send channel
+4. Click "Send" in the action bar
+5. System reports: sent / failed
 
 ### What the Client Receives
 
@@ -76,7 +113,15 @@ SMS message:
 ```
 {Company Name} asks for a review: https://review.reviewhub.ru/review/{token}
 Unsubscribe: https://review.reviewhub.ru/optout/{token}
+Telegram: t.me/{bot}?start={id}
+Max: max.ru/{bot}?start={id}
 ```
+
+Messenger clients receive a formatted message with links.
+
+### SMS Fallback
+
+If messenger delivery fails (bot blocked, API error), the system automatically falls back to SMS.
 
 ## Viewing Reviews
 
@@ -102,12 +147,21 @@ Each review contains:
 
 | Metric | Description |
 |--------|-------------|
-| SMS sent | Number of SMS sent in the period |
+| Messages sent | SMS + messengers in the period |
 | Reviews | Number of reviews received |
-| Conversion | Reviews / SMS (%) |
+| Conversion | Reviews / messages (%) |
 | Avg rating | Average score (1-5) |
 | Positive | Number of positive reviews |
 | Negative | Number of negative reviews |
+
+### Channel Analytics
+
+The "By Channel" table shows per-channel stats (SMS, Telegram, Max):
+- **Sent** — successful deliveries
+- **Failed** — failed attempts
+- **Reviews** — reviews received via this channel
+- **Conversion** — review-to-sent ratio
+- **SMS Fallback** — times a messenger failed and SMS was used instead
 
 ### Periods
 - 7 days

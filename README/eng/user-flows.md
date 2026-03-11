@@ -204,3 +204,57 @@ System
   ├─ Log API error
   │
 ```
+
+### Flow 11: Messenger Auto-Linking (v1.0)
+
+```
+Client                         System
+  │                               │
+  │◀── SMS: "...Telegram:        │
+  │    t.me/bot?start={id}" ─────┤
+  │                               │
+  ├─ Taps Telegram link ────────▶│ (opens t.me/bot)
+  │                               │
+  ├─ Taps "Start" ──────────────▶│
+  │                               ├─ Telegram → /start {clientId}
+  │                               ├─ Webhook POST /api/webhooks/telegram/:adminId
+  │                               ├─ HMAC verification ✓
+  │                               ├─ UUID validation ✓
+  │                               ├─ Encrypts chat_id (AES-256)
+  │                               ├─ preferred_channel → telegram
+  │◀── "You're connected!" ──────┤
+  │                               │
+  │  Future notifications ───────▶│ via Telegram (free)
+  │                               │
+```
+
+### Flow 12: Batch Send (v1.1)
+
+```
+Admin                          System
+  │                               │
+  ├─ Selects 25 clients ─────────▶│
+  ├─ Picks channel "Telegram" ──▶│
+  ├─ Clicks "Send" ─────────────▶│
+  │                               ├─ For each client:
+  │                               │   ├─ Telegram → send
+  │                               │   ├─ If error → fallback SMS
+  │                               │   └─ Log to sms_logs
+  │◀── Sent: 23, Failed: 2 ──────┤
+  │                               │
+```
+
+### Flow 13: Messenger Fallback to SMS
+
+```
+System
+  │
+  ├─ Send via Telegram
+  ├─ Telegram API → error (bot blocked)
+  ├─ Fallback: send via SMS
+  │   ├─ Logged: telegram → failed
+  │   ├─ SMS via SMSC.ru → success
+  │   └─ actual_channel = sms, fallback_from = telegram
+  ├─ review_request.channel = sms (updated)
+  │
+```
