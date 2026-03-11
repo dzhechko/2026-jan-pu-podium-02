@@ -109,6 +109,30 @@
       "files": ["packages/admin/src/"],
       "depends_on": ["admin-auth", "client-management"],
       "sprint": "MVP"
+    },
+    {
+      "id": "multi-channel-messaging",
+      "name": "Multi-Channel Messaging (Telegram + Max)",
+      "description": "Send review requests via Telegram and Max messengers alongside SMS, with per-admin bot config, encrypted chat IDs, SMS fallback, and channel-specific templates",
+      "status": "done",
+      "files": [
+        "packages/api/src/services/telegram.ts",
+        "packages/api/src/services/max.ts",
+        "packages/api/src/services/message-gateway.ts",
+        "packages/api/src/modules/sms/service.ts",
+        "packages/api/src/modules/sms/schema.ts",
+        "packages/api/src/modules/sms/template-service.ts",
+        "packages/api/src/modules/settings/service.ts",
+        "packages/api/src/modules/settings/schema.ts",
+        "packages/api/src/modules/clients/service.ts",
+        "packages/api/src/services/reminder.ts",
+        "packages/api/src/app.ts",
+        "packages/api/prisma/schema.prisma",
+        "packages/admin/src/pages/Settings.tsx",
+        "packages/admin/src/pages/Clients.tsx"
+      ],
+      "depends_on": ["sms-integration", "cascade-reminders", "sms-templates"],
+      "sprint": "v1.0"
     }
   ]
 }
