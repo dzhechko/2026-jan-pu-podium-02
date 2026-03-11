@@ -11,6 +11,12 @@ export class ClientsService {
   async create(adminId: string, input: CreateClientInput) {
     const phoneEncrypted = this.encryption.encrypt(input.phone);
     const emailEncrypted = input.email ? this.encryption.encrypt(input.email) : null;
+    const telegramChatIdEncrypted = input.telegram_chat_id
+      ? this.encryption.encrypt(input.telegram_chat_id)
+      : null;
+    const maxChatIdEncrypted = input.max_chat_id
+      ? this.encryption.encrypt(input.max_chat_id)
+      : null;
 
     const client = await this.prisma.client.create({
       data: {
@@ -18,8 +24,8 @@ export class ClientsService {
         name: input.name,
         phoneEncrypted,
         emailEncrypted,
-        telegramChatId: input.telegram_chat_id ?? null,
-        maxChatId: input.max_chat_id ?? null,
+        telegramChatIdEncrypted,
+        maxChatIdEncrypted,
         preferredChannel: input.preferred_channel ?? 'sms',
       },
     });
@@ -57,7 +63,6 @@ export class ClientsService {
 
   async importCsv(adminId: string, csvContent: string) {
     const lines = csvContent.trim().split('\n');
-    // Skip header if present
     const startIdx = lines[0]?.toLowerCase().includes('name') ? 1 : 0;
 
     let imported = 0;
@@ -67,7 +72,6 @@ export class ClientsService {
 
     for (let i = startIdx; i < lines.length; i++) {
       const parts = lines[i].split(',').map((s) => s.trim());
-      // Extended CSV: name,phone,email,telegram_chat_id,max_chat_id,preferred_channel
       const [name, phone, email, telegramChatId, maxChatId, preferredChannelRaw] = parts;
 
       if (!name || !phone) {
@@ -82,7 +86,6 @@ export class ClientsService {
         continue;
       }
 
-      // Validate telegram_chat_id format (numeric)
       const tgChatId = telegramChatId || null;
       if (tgChatId && !/^\d+$/.test(tgChatId)) {
         errors.push(`Row ${i + 1}: telegram_chat_id must be numeric`);
@@ -92,7 +95,6 @@ export class ClientsService {
 
       const mxChatId = maxChatId || null;
 
-      // Auto-detect preferred channel from available IDs
       let preferredChannel = preferredChannelRaw?.trim() ?? '';
       if (!preferredChannel || !validChannels.includes(preferredChannel)) {
         if (tgChatId) {
@@ -107,6 +109,8 @@ export class ClientsService {
       try {
         const phoneEncrypted = this.encryption.encrypt(phone);
         const emailEncrypted = email ? this.encryption.encrypt(email) : null;
+        const telegramChatIdEncrypted = tgChatId ? this.encryption.encrypt(tgChatId) : null;
+        const maxChatIdEncrypted = mxChatId ? this.encryption.encrypt(mxChatId) : null;
 
         await this.prisma.client.create({
           data: {
@@ -114,8 +118,8 @@ export class ClientsService {
             name,
             phoneEncrypted,
             emailEncrypted,
-            telegramChatId: tgChatId,
-            maxChatId: mxChatId,
+            telegramChatIdEncrypted,
+            maxChatIdEncrypted,
             preferredChannel,
           },
         });
@@ -134,8 +138,8 @@ export class ClientsService {
     name: string;
     phoneEncrypted: Buffer;
     emailEncrypted: Buffer | null;
-    telegramChatId: string | null;
-    maxChatId: string | null;
+    telegramChatIdEncrypted: Buffer | null;
+    maxChatIdEncrypted: Buffer | null;
     preferredChannel: string;
     optedOut: boolean;
     createdAt: Date;
@@ -147,8 +151,12 @@ export class ClientsService {
       email: client.emailEncrypted
         ? this.encryption.decrypt(Buffer.from(client.emailEncrypted))
         : null,
-      telegram_chat_id: client.telegramChatId,
-      max_chat_id: client.maxChatId,
+      telegram_chat_id: client.telegramChatIdEncrypted
+        ? this.encryption.decrypt(Buffer.from(client.telegramChatIdEncrypted))
+        : null,
+      max_chat_id: client.maxChatIdEncrypted
+        ? this.encryption.decrypt(Buffer.from(client.maxChatIdEncrypted))
+        : null,
       preferred_channel: client.preferredChannel,
       opted_out: client.optedOut,
       created_at: client.createdAt.toISOString(),

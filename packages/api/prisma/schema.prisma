@@ -38,8 +38,8 @@ model Client {
   name           String   @db.VarChar(255)
   phoneEncrypted Bytes    @map("phone_encrypted")
   emailEncrypted Bytes?   @map("email_encrypted")
-  telegramChatId String?  @map("telegram_chat_id")
-  maxChatId      String?  @map("max_chat_id")
+  telegramChatIdEncrypted Bytes?  @map("telegram_chat_id_encrypted")
+  maxChatIdEncrypted      Bytes?  @map("max_chat_id_encrypted")
   preferredChannel String @default("sms") @map("preferred_channel")
   optedOut       Boolean  @default(false) @map("opted_out")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
@@ -112,7 +112,7 @@ model Review {
 model SmsLog {
   id              String    @id @default(uuid()) @db.Uuid
   reviewRequestId String    @map("review_request_id") @db.Uuid
-  phoneMasked     String    @map("phone_masked") @db.VarChar(20)
+  phoneMasked     String    @map("phone_masked") @db.VarChar(50)
   messagePreview  String?   @map("message_preview") @db.VarChar(100)
   smscMessageId   String?   @map("smsc_message_id") @db.VarChar(100)
   channel         String    @default("sms")
@@ -125,5 +125,6 @@ model SmsLog {
 
   reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id])
 
+  @@index([channel])
   @@map("sms_logs")
 }

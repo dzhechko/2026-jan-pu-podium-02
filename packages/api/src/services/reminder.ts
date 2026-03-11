@@ -86,11 +86,15 @@ export class ReminderService {
         const link = `${this.pwaUrl}/review/${request.token}`;
         const optoutLink = `${this.pwaUrl}/optout/${request.token}`;
 
-        // Build recipient object
+        // Build recipient object (decrypt chat IDs)
         const recipient: Recipient = {
           phone,
-          telegramChatId: request.client.telegramChatId ?? undefined,
-          maxChatId: request.client.maxChatId ?? undefined,
+          telegramChatId: request.client.telegramChatIdEncrypted
+            ? this.encryption.decrypt(Buffer.from(request.client.telegramChatIdEncrypted))
+            : undefined,
+          maxChatId: request.client.maxChatIdEncrypted
+            ? this.encryption.decrypt(Buffer.from(request.client.maxChatIdEncrypted))
+            : undefined,
         };
 
         // Build message fetcher (re-fetches per channel for fallback - AC-9)
@@ -108,8 +112,8 @@ export class ReminderService {
           return this.buildFallbackMessage(request.admin.companyName, link, optoutLink);
         };
 
-        // Send via gateway (handles fallback + template re-fetch)
-        const gatewayResult = await this.gateway.send(channel, recipient, messageFetcher);
+        // Send via gateway (per-admin providers, handles fallback + template re-fetch)
+        const gatewayResult = await this.gateway.send(request.adminId, channel, recipient, messageFetcher);
 
         if (gatewayResult.success) {
           // Calculate next reminder timing

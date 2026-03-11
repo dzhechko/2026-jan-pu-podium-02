@@ -1,4 +1,4 @@
-import type { MessageResult } from './telegram.js';
+import type { MessageResult } from './message-gateway.js';
 
 interface MaxSendResponse {
   message?: {
@@ -21,12 +21,18 @@ export class MaxProvider {
 
   constructor(private readonly token: string) {}
 
+  private getHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'access_token': this.token,
+    };
+  }
+
   async send(chatId: string, message: string): Promise<MessageResult> {
     try {
-      const url = `${this.baseUrl}/messages?access_token=${encodeURIComponent(this.token)}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseUrl}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({
           chat_id: chatId,
           text: message,
@@ -51,8 +57,8 @@ export class MaxProvider {
 
   async validateCredentials(): Promise<boolean> {
     try {
-      const url = `${this.baseUrl}/me?access_token=${encodeURIComponent(this.token)}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseUrl}/me`, {
+        headers: { 'access_token': this.token },
         signal: AbortSignal.timeout(5000),
       });
       const data = (await response.json()) as MaxMeResponse;
@@ -64,8 +70,8 @@ export class MaxProvider {
 
   async getBotInfo(): Promise<{ name: string } | null> {
     try {
-      const url = `${this.baseUrl}/me?access_token=${encodeURIComponent(this.token)}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseUrl}/me`, {
+        headers: { 'access_token': this.token },
         signal: AbortSignal.timeout(5000),
       });
       const data = (await response.json()) as MaxMeResponse;
@@ -78,5 +84,3 @@ export class MaxProvider {
     }
   }
 }
-
-export type { MessageResult };

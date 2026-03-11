@@ -86,7 +86,11 @@ await clientsRoutes(app, clientsService, authenticate);
 // SMS / Review Request routes
 const smscService = new SmscService(env.SMSC_LOGIN, env.SMSC_PASSWORD, env.SMSC_SENDER);
 const smsTemplateService = new SmsTemplateService(prisma);
-const messageGateway = new MessageGateway(smscService);
+const messageGateway = new MessageGateway(smscService, prisma, encryptionService, {
+  info: (msg) => app.log.info(msg),
+  warn: (msg) => app.log.warn(msg),
+  error: (msg) => app.log.error(msg),
+});
 const reviewRequestService = new ReviewRequestService(prisma, messageGateway, encryptionService, env.PWA_URL, smsTemplateService);
 await smsRoutes(app, reviewRequestService, authenticate, smsTemplateService);
 

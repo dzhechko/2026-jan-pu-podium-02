@@ -1,8 +1,4 @@
-export interface MessageResult {
-  success: boolean;
-  externalId?: string;
-  error?: string;
-}
+import type { MessageResult } from './message-gateway.js';
 
 interface TelegramResponse {
   ok: boolean;

@@ -1,6 +1,8 @@
 import type { SmscService } from './smsc.js';
-import type { TelegramProvider } from './telegram.js';
-import type { MaxProvider } from './max.js';
+import { TelegramProvider } from './telegram.js';
+import { MaxProvider } from './max.js';
+import type { EncryptionService } from './encryption.js';
+import type { PrismaClient } from '@prisma/client';
 
 export interface MessageResult {
   success: boolean;
@@ -42,30 +44,63 @@ class SmscAdapter implements MessageProvider {
   }
 }
 
+export interface GatewayLogger {
+  info: (msg: string) => void;
+  warn: (msg: string) => void;
+  error: (msg: string) => void;
+}
+
+/**
+ * MessageGateway creates per-admin Telegram/Max providers on-the-fly
+ * by decrypting bot tokens from the admin record.
+ * SMS provider is shared (credentials from env).
+ */
 export class MessageGateway {
-  private readonly providers = new Map<string, MessageProvider>();
+  private readonly smsProvider: SmscAdapter;
 
   constructor(
     smscService: SmscService,
-    telegramProvider?: TelegramProvider,
-    maxProvider?: MaxProvider,
+    private readonly prisma: PrismaClient,
+    private readonly encryption: EncryptionService,
+    private readonly logger?: GatewayLogger,
   ) {
-    this.providers.set('sms', new SmscAdapter(smscService));
-    if (telegramProvider) {
-      this.providers.set('telegram', telegramProvider);
+    this.smsProvider = new SmscAdapter(smscService);
+  }
+
+  /**
+   * Build per-admin providers by decrypting stored bot tokens.
+   */
+  private async getProvidersForAdmin(adminId: string): Promise<Map<string, MessageProvider>> {
+    const providers = new Map<string, MessageProvider>();
+    providers.set('sms', this.smsProvider);
+
+    const admin = await this.prisma.admin.findUnique({
+      where: { id: adminId },
+      select: { telegramBotTokenEncrypted: true, maxBotTokenEncrypted: true },
+    });
+
+    if (admin?.telegramBotTokenEncrypted) {
+      const token = this.encryption.decrypt(Buffer.from(admin.telegramBotTokenEncrypted));
+      providers.set('telegram', new TelegramProvider(token));
     }
-    if (maxProvider) {
-      this.providers.set('max', maxProvider);
+
+    if (admin?.maxBotTokenEncrypted) {
+      const token = this.encryption.decrypt(Buffer.from(admin.maxBotTokenEncrypted));
+      providers.set('max', new MaxProvider(token));
     }
+
+    return providers;
   }
 
   async send(
+    adminId: string,
     channel: string,
     recipient: Recipient,
     messageFetcher: MessageFetcher,
   ): Promise<MessageSendResult> {
+    const providers = await this.getProvidersForAdmin(adminId);
     const recipientId = this.getRecipientId(channel, recipient);
-    const provider = this.providers.get(channel);
+    const provider = providers.get(channel);
 
     // Try primary channel
     if (provider && recipientId) {
@@ -74,28 +109,24 @@ export class MessageGateway {
       if (result.success) {
         return { ...result, actualChannel: channel };
       }
-      console.warn(`Channel ${channel} failed: ${result.error ?? 'unknown'}`);
+      this.logger?.warn(`Channel ${channel} failed for admin ${adminId}: ${result.error ?? 'unknown'}`);
+    } else if (!provider) {
+      this.logger?.warn(`Channel ${channel} not configured for admin ${adminId}`);
     }
 
     // Fallback to SMS if messenger fails or is not available
-    if (channel !== 'sms') {
-      const smsProvider = this.providers.get('sms');
-      if (smsProvider && recipient.phone) {
-        const smsMessage = await messageFetcher('sms');
-        const smsResult = await smsProvider.send(recipient.phone, smsMessage);
-        return { ...smsResult, actualChannel: 'sms', fallbackFrom: channel };
-      }
+    if (channel !== 'sms' && recipient.phone) {
+      const smsMessage = await messageFetcher('sms');
+      const smsResult = await this.smsProvider.send(recipient.phone, smsMessage);
+      return { ...smsResult, actualChannel: 'sms', fallbackFrom: channel };
     }
 
     return { success: false, error: 'No channel available', actualChannel: channel };
   }
 
-  getConfiguredChannels(): string[] {
-    return Array.from(this.providers.keys());
-  }
-
-  hasChannel(channel: string): boolean {
-    return this.providers.has(channel);
+  async getConfiguredChannelsForAdmin(adminId: string): Promise<string[]> {
+    const providers = await this.getProvidersForAdmin(adminId);
+    return Array.from(providers.keys());
   }
 
   private getRecipientId(channel: string, recipient: Recipient): string | undefined {
@@ -103,9 +134,9 @@ export class MessageGateway {
       case 'sms':
         return recipient.phone;
       case 'telegram':
-        return recipient.telegramChatId ?? undefined;
+        return recipient.telegramChatId;
       case 'max':
-        return recipient.maxChatId ?? undefined;
+        return recipient.maxChatId;
       default:
         return undefined;
     }

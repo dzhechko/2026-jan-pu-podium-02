@@ -54,11 +54,15 @@ export class ReviewRequestService {
       const link = `${this.pwaUrl}/review/${token}`;
       const optout = `${this.pwaUrl}/optout/${token}`;
 
-      // Build recipient object
+      // Build recipient object (decrypt chat IDs)
       const recipient: Recipient = {
         phone,
-        telegramChatId: client.telegramChatId ?? undefined,
-        maxChatId: client.maxChatId ?? undefined,
+        telegramChatId: client.telegramChatIdEncrypted
+          ? this.encryption.decrypt(Buffer.from(client.telegramChatIdEncrypted))
+          : undefined,
+        maxChatId: client.maxChatIdEncrypted
+          ? this.encryption.decrypt(Buffer.from(client.maxChatIdEncrypted))
+          : undefined,
       };
 
       // Build message fetcher (re-fetches per channel for fallback - AC-9)
@@ -69,8 +73,8 @@ export class ReviewRequestService {
         return `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
       };
 
-      // Send via gateway (handles fallback + template re-fetch)
-      const result = await this.gateway.send(channel, recipient, messageFetcher);
+      // Send via gateway (per-admin providers, handles fallback + template re-fetch)
+      const result = await this.gateway.send(adminId, channel, recipient, messageFetcher);
 
       if (result.success) {
         await this.prisma.reviewRequest.update({

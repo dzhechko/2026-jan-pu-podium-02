@@ -48,12 +48,16 @@ export class SettingsService {
       data,
     });
 
+    // Include channel status in response
+    const channels = await this.getChannels(adminId);
+
     return {
       company_name: admin.companyName,
       yandex_maps_url: admin.yandexMapsUrl,
       yandex_org_id: admin.yandexOrgId,
       discount_percent: admin.discountPercent,
       discount_text: admin.discountText,
+      ...channels,
     };
   }
 

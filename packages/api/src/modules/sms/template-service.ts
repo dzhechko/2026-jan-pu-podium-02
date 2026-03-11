@@ -16,9 +16,6 @@ const DEFAULT_MESSENGER_TEMPLATES: Record<number, string> = {
   4: '\u{23F0} *{company}*: последнее напоминание!\n\n\u{1F517} {link}\n\n_Отписка: {optout}_',
 };
 
-/** @deprecated Use DEFAULT_SMS_TEMPLATES instead */
-const DEFAULT_TEMPLATES = DEFAULT_SMS_TEMPLATES;
-
 const REQUIRED_PLACEHOLDERS = ['{link}', '{optout}'];
 
 export class SmsTemplateService {
@@ -62,7 +59,7 @@ export class SmsTemplateService {
         message_template: t.messageTemplate,
         created_at: t.createdAt.toISOString(),
       })),
-      defaults: DEFAULT_TEMPLATES,
+      defaults: { sms: DEFAULT_SMS_TEMPLATES, messenger: DEFAULT_MESSENGER_TEMPLATES },
     };
   }
 
@@ -92,9 +89,9 @@ export class SmsTemplateService {
     const text = template?.messageTemplate ?? defaults[reminderNumber] ?? defaults[1];
 
     return text
-      .replace('{company}', company)
-      .replace('{link}', link)
-      .replace('{optout}', optout);
+      .replaceAll('{company}', company)
+      .replaceAll('{link}', link)
+      .replaceAll('{optout}', optout);
   }
 
   private getDefaultTemplates(channel: string): Record<number, string> {
