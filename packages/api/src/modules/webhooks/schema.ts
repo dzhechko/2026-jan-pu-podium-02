@@ -22,7 +22,7 @@ export const telegramWebhookBodySchema = z.object({
         id: z.number().int(),
         type: z.enum(['private', 'group', 'supergroup', 'channel']),
       }),
-      text: z.string().optional(),
+      text: z.string().max(4096).optional(),
       date: z.number().int(),
     })
     .optional(),
@@ -37,7 +37,7 @@ export const maxWebhookBodySchema = z.object({
         user_id: z.number().int(),
       }),
       body: z.object({
-        text: z.string(),
+        text: z.string().max(4096),
       }),
       recipient: z.object({
         chat_id: z.number().int(),

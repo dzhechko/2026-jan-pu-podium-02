@@ -79,9 +79,9 @@ const encryptionService = new EncryptionService(env.ENCRYPTION_KEY);
 
 // Webhook routes (public — no auth, receives POST from Telegram/Max servers)
 const webhookService = new WebhookService(prisma, encryptionService, env.WEBHOOK_SECRET, env.API_BASE_URL, {
-  info: (msg) => app.log.info(msg),
-  warn: (msg) => app.log.warn(msg),
-  error: (msg) => app.log.error(msg),
+  info: (msg, data) => app.log.info(data ?? {}, msg),
+  warn: (msg, data) => app.log.warn(data ?? {}, msg),
+  error: (msg, data) => app.log.error(data ?? {}, msg),
 });
 await webhookRoutes(app, webhookService);
 

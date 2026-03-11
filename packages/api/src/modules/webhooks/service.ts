@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import type { EncryptionService } from '../../services/encryption.js';
 import { TelegramProvider } from '../../services/telegram.js';
@@ -13,16 +13,6 @@ interface Logger {
   error(msg: string, data?: Record<string, unknown>): void;
 }
 
-interface TelegramSetWebhookResponse {
-  ok: boolean;
-  description?: string;
-}
-
-interface MaxSubscriptionResponse {
-  subscriptions?: unknown[];
-  error?: string;
-  description?: string;
-}
 
 export class WebhookService {
   private readonly log: Logger;
@@ -50,12 +40,15 @@ export class WebhookService {
   }
 
   /**
-   * Compare provided token with expected HMAC in constant-time fashion
-   * by comparing both as hex strings.
+   * Compare provided token with expected HMAC using constant-time comparison
+   * to prevent timing side-channel attacks.
    */
   verifyTelegramSecret(adminId: string, providedToken: string): boolean {
     const expected = this.generateTelegramSecret(adminId);
-    return expected === providedToken;
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(providedToken, 'utf8');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
   }
 
   /**
@@ -115,7 +108,8 @@ export class WebhookService {
       return;
     }
 
-    const chatId = String(message.recipient.chat_id);
+    // Use sender.user_id for DM routing (recipient.chat_id is the conversation context)
+    const chatId = String(message.sender.user_id);
 
     // Fire and forget — caller has already sent 200
     this.linkClient(adminId, clientId, 'max', chatId)
@@ -177,9 +171,7 @@ export class WebhookService {
       });
     }
 
-    // Log with masked chat ID for privacy (show last 4 chars only)
-    const maskedChatId = chatId.length > 4 ? `****${chatId.slice(-4)}` : '****';
-    this.log.info('client linked to messenger', { adminId, clientId, channel, maskedChatId });
+    this.log.info('client linked to messenger', { adminId, channel });
 
     return true;
   }
@@ -236,7 +228,7 @@ export class WebhookService {
 
   /**
    * Register a webhook with Telegram or Max for the given admin.
-   * Returns { success: false, error } when the provider rejects — token is still valid.
+   * Delegates to provider methods to avoid HTTP logic duplication.
    */
   async registerWebhook(
     adminId: string,
@@ -245,98 +237,53 @@ export class WebhookService {
   ): Promise<{ success: boolean; error?: string }> {
     const webhookUrl = `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
 
-    if (channel === 'telegram') {
-      const secretToken = this.generateTelegramSecret(adminId);
-      try {
-        const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: webhookUrl,
-            secret_token: secretToken,
-            allowed_updates: ['message'],
-          }),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        const data = (await response.json()) as TelegramSetWebhookResponse;
-        if (data.ok) {
-          this.log.info('telegram webhook registered', { adminId, webhookUrl });
-          return { success: true };
-        }
-
-        this.log.warn('telegram webhook registration failed', {
-          adminId,
-          description: data.description,
-        });
-        return { success: false, error: data.description ?? 'Telegram setWebhook returned ok=false' };
-      } catch (err: unknown) {
-        const error = String(err);
-        this.log.error('telegram webhook registration error', { adminId, error });
-        return { success: false, error };
-      }
-    }
-
-    // Max channel
     try {
-      const response = await fetch('https://botapi.max.ru/subscriptions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'access_token': token,
-        },
-        body: JSON.stringify({
-          url: webhookUrl,
-          update_types: ['message_created'],
-        }),
-        signal: AbortSignal.timeout(10000),
-      });
-
-      const data = (await response.json()) as MaxSubscriptionResponse;
-      if (response.ok) {
-        this.log.info('max webhook registered', { adminId, webhookUrl });
-        return { success: true };
+      if (channel === 'telegram') {
+        const secretToken = this.generateTelegramSecret(adminId);
+        const provider = new TelegramProvider(token);
+        const result = await provider.setWebhook(webhookUrl, secretToken);
+        if (result.success) {
+          this.log.info('telegram webhook registered', { adminId, webhookUrl });
+        } else {
+          this.log.warn('telegram webhook registration failed', { adminId, error: result.error });
+        }
+        return result;
       }
 
-      const errorMsg = data.error ?? data.description ?? 'Max subscription API error';
-      this.log.warn('max webhook registration failed', { adminId, error: errorMsg });
-      return { success: false, error: errorMsg };
+      const provider = new MaxProvider(token);
+      const result = await provider.subscribe(webhookUrl);
+      if (result.success) {
+        this.log.info('max webhook registered', { adminId, webhookUrl });
+      } else {
+        this.log.warn('max webhook registration failed', { adminId, error: result.error });
+      }
+      return result;
     } catch (err: unknown) {
       const error = String(err);
-      this.log.error('max webhook registration error', { adminId, error });
+      this.log.error('webhook registration error', { adminId, channel, error });
       return { success: false, error };
     }
   }
 
   /**
    * Remove a registered webhook from Telegram or Max.
-   * Failures are logged but not thrown — non-critical cleanup.
+   * Delegates to provider methods. Failures logged but not thrown.
    */
-  async deregisterWebhook(channel: 'telegram' | 'max', token: string): Promise<void> {
-    if (channel === 'telegram') {
-      try {
-        const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
-          method: 'POST',
-          signal: AbortSignal.timeout(10000),
-        });
-        const data = (await response.json()) as TelegramSetWebhookResponse;
-        this.log.info('telegram webhook deregistered', { ok: data.ok });
-      } catch (err: unknown) {
-        this.log.warn('telegram webhook deregistration failed', { error: String(err) });
-      }
-      return;
-    }
+  async deregisterWebhook(adminId: string, channel: 'telegram' | 'max', token: string): Promise<void> {
+    const webhookUrl = `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
 
-    // Max channel
     try {
-      const response = await fetch('https://botapi.max.ru/subscriptions', {
-        method: 'DELETE',
-        headers: { 'access_token': token },
-        signal: AbortSignal.timeout(10000),
-      });
-      this.log.info('max webhook deregistered', { status: response.status });
+      if (channel === 'telegram') {
+        const provider = new TelegramProvider(token);
+        await provider.deleteWebhook();
+        this.log.info('telegram webhook deregistered', { adminId });
+      } else {
+        const provider = new MaxProvider(token);
+        await provider.unsubscribe(webhookUrl);
+        this.log.info('max webhook deregistered', { adminId });
+      }
     } catch (err: unknown) {
-      this.log.warn('max webhook deregistration failed', { error: String(err) });
+      this.log.warn('webhook deregistration failed', { channel, error: String(err) });
     }
   }
 }

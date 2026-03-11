@@ -34,7 +34,8 @@ export async function webhookRoutes(
     const { adminId } = paramsParsed.data;
 
     // Validate Telegram secret token
-    const secretToken = (request.headers['x-telegram-bot-api-secret-token'] as string) ?? '';
+    const rawHeader = request.headers['x-telegram-bot-api-secret-token'];
+    const secretToken = typeof rawHeader === 'string' ? rawHeader : '';
     if (!webhookService.verifyTelegramSecret(adminId, secretToken)) {
       request.log.warn({ adminId }, 'telegram webhook: invalid secret token');
       return reply.status(200).send({ ok: true });

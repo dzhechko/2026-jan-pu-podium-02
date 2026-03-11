@@ -55,15 +55,15 @@ export class SettingsService {
       data,
     });
 
-    // Register webhooks after token save
+    // Register webhooks after token save (fire-and-forget, errors logged by WebhookService)
     if (this.webhookService) {
       if (input.telegram_bot_token) {
         this.webhookService.registerWebhook(admin.id, 'telegram', input.telegram_bot_token)
-          .catch((err) => console.warn('Telegram webhook registration failed:', err));
+          .catch(() => { /* logged by WebhookService */ });
       }
       if (input.max_bot_token) {
         this.webhookService.registerWebhook(admin.id, 'max', input.max_bot_token)
-          .catch((err) => console.warn('Max webhook registration failed:', err));
+          .catch(() => { /* logged by WebhookService */ });
       }
     }
 
