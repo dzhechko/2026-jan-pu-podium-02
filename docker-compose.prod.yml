@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    volumes:
+      - ./nginx/ssl/selfsigned.crt:/app/ssl/selfsigned.crt:ro
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://reviewhub:${POSTGRES_PASSWORD:-changeme}@postgres:5432/reviewhub
+      - REDIS_URL=redis://redis:6379
+      - APP_URL=https://89.125.130.105
+      - PWA_URL=https://89.125.130.105:9443
+      - API_BASE_URL=https://89.125.130.105
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: admin
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+  pwa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pwa
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "9443:9443"
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - admin
+      - pwa
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reviewhub
+      POSTGRES_USER: reviewhub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - reviewhub-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reviewhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - reviewhub-redis:/data
+    restart: unless-stopped
+    networks:
+      - reviewhub
+
+volumes:
+  reviewhub-pgdata:
+  reviewhub-redis:
+
+networks:
+  reviewhub:
+    name: reviewhub

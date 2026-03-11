@@ -25,7 +25,7 @@
 | SMS | SMSC.ru HTTP API |
 | Messengers | Telegram Bot API, Max Bot API |
 | AI | Anthropic Claude API (sentiment analysis) |
-| Deploy | Docker Compose on VPS (Russia, 152-ФЗ) |
+| Deploy | Docker Compose + Nginx + SSL on VPS (Russia, 152-ФЗ) |
 
 ## Architecture
 
@@ -52,7 +52,34 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
+## Production Deployment
+
+ReviewHub runs on a VPS with Docker Compose, Nginx reverse proxy, and self-signed SSL.
+
+```bash
+# Build and start all services
+docker compose -f docker-compose.prod.yml up -d --build
+
+# Push Prisma schema to database
+docker compose -f docker-compose.prod.yml exec api npx prisma db push --skip-generate
+
+# Restore database backup (if needed)
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  psql -U reviewhub -d reviewhub < reviewhub_backup.sql
+```
+
+**Live endpoints:**
+- Admin panel: `https://89.125.130.105` (port 443)
+- PWA review form: `https://89.125.130.105:9443`
+- API: `https://89.125.130.105/api/`
+
+**Infrastructure:**
+- Nginx reverse proxy with self-signed SSL (TLS 1.2/1.3)
+- PostgreSQL 16 + Redis 7 in Docker
+- API container: Node.js 20 Alpine + OpenSSL 3.x
+- HTTP → HTTPS redirect on port 80
+
+## Development
 
 ```bash
 # Install dependencies
@@ -100,10 +127,11 @@ reviewhub/
 │   │   └── tests/             # Vitest unit tests
 │   ├── admin/        # Admin Panel (React SPA)
 │   └── pwa/          # PWA Review Form
-├── nginx/            # Nginx configs
+├── nginx/            # Nginx configs (dev + prod + SSL)
 ├── docs/             # SPARC documentation
-├── myinsights/       # Development knowledge base
-└── docker-compose.yml
+├── myinsights/       # Development knowledge base (12 insights)
+├── docker-compose.yml        # Development
+└── docker-compose.prod.yml   # Production (HTTPS, Nginx, SSL)
 ```
 
 ## Key Features

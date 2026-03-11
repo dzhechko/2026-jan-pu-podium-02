@@ -5,7 +5,7 @@ import { updateSettingsSchema } from './schema.js';
 export async function settingsRoutes(
   app: FastifyInstance,
   settingsService: SettingsService,
-  authenticate: (request: FastifyRequest, reply: unknown) => Promise<void>,
+  authenticate: (request: FastifyRequest, reply: any) => Promise<void>,
 ) {
   app.get('/api/settings', {
     preHandler: [authenticate],

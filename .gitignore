@@ -9,3 +9,10 @@ coverage/
 .nyc_output/
 *.tsbuildinfo
 .vite/
+
+# SSL certificates and keys (contain private key)
+nginx/ssl/
+
+# Database backups (contain user data)
+*.sql
+reviewhub_backup.sql

@@ -1,3 +1,4 @@
+import { readFileSync, existsSync } from 'node:fs';
 import type { MessageResult } from './message-gateway.js';
 
 interface TelegramResponse {
@@ -73,16 +74,34 @@ export class TelegramProvider {
     }
   }
 
-  async setWebhook(url: string, secretToken: string): Promise<{ success: boolean; error?: string }> {
+  async setWebhook(url: string, secretToken: string, certificatePath?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/setWebhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let body: BodyInit;
+      let headers: Record<string, string> = {};
+
+      // If self-signed certificate exists, send it as multipart form-data
+      const certPath = certificatePath ?? '/app/ssl/selfsigned.crt';
+      if (existsSync(certPath)) {
+        const certData = readFileSync(certPath);
+        const formData = new FormData();
+        formData.append('url', url);
+        formData.append('secret_token', secretToken);
+        formData.append('allowed_updates', JSON.stringify(['message']));
+        formData.append('certificate', new Blob([certData], { type: 'application/x-pem-file' }), 'selfsigned.crt');
+        body = formData;
+      } else {
+        headers = { 'Content-Type': 'application/json' };
+        body = JSON.stringify({
           url,
           secret_token: secretToken,
           allowed_updates: ['message'],
-        }),
+        });
+      }
+
+      const response = await fetch(`${this.baseUrl}/setWebhook`, {
+        method: 'POST',
+        headers,
+        body,
         signal: AbortSignal.timeout(10000),
       });
 

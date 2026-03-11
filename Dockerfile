@@ -40,10 +40,12 @@ RUN cd packages/pwa && npm run build
 # Stage: API Runtime
 # ============================================
 FROM base AS api
+RUN apk add --no-cache openssl
 COPY --from=api-build /app/packages/api/dist ./dist
 COPY --from=api-build /app/packages/api/prisma ./prisma
+COPY --from=api-build /app/node_modules ./node_modules
 COPY --from=api-build /app/packages/api/node_modules ./node_modules
-COPY --from=api-build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=api-build /app/packages/api/package.json ./package.json
 EXPOSE 3000
 CMD ["node", "dist/app.js"]
 

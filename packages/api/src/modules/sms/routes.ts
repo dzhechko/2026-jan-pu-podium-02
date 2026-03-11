@@ -11,7 +11,7 @@ import {
 export async function smsRoutes(
   app: FastifyInstance,
   reviewRequestService: ReviewRequestService,
-  authenticate: (request: FastifyRequest, reply: unknown) => Promise<void>,
+  authenticate: (request: FastifyRequest, reply: any) => Promise<void>,
   smsTemplateService?: SmsTemplateService,
 ) {
   app.post('/api/review-requests', {

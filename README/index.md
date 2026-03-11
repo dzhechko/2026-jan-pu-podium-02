@@ -1,6 +1,8 @@
 # ReviewHub Documentation
 
-Bilingual documentation for ReviewHub — automated review collection and routing platform for Russian SMB.
+Bilingual documentation for ReviewHub -- automated review collection and routing platform for Russian SMB.
+
+**Production:** `https://89.125.130.105` (admin, port 443) | `https://89.125.130.105:9443` (PWA)
 
 ---
 

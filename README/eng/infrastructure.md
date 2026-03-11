@@ -21,18 +21,18 @@
 ## Docker Services
 
 ```
-┌────────────────────────────────────────────────────┐
-│                   NGINX (ports 80, 443)            │
-│              SSL + Reverse Proxy + Static          │
-├──────────┬──────────┬──────────────────────────────┤
-│  Admin   │   PWA    │          API                 │
-│  (static)│  (static)│    (Node.js, port 3000)      │
-├──────────┴──────────┴──────────┬───────────────────┤
-│                                │                   │
-│         PostgreSQL 16          │     Redis 7       │
-│         (port 5432)            │   (port 6379)     │
-│         1 GB RAM               │    128 MB RAM     │
-└────────────────────────────────┴───────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│              NGINX (ports 80, 443, 9443)                 │
+│         SSL (self-signed) + Reverse Proxy                │
+├──────────────────────────────┬───────────────────────────┤
+│  :443 — Admin (static) +    │  :9443 — PWA (static) +   │
+│         API (/api/)          │          API (/api/)       │
+├──────────────────────────────┴─────┬─────────────────────┤
+│                                    │                     │
+│         PostgreSQL 16              │     Redis 7         │
+│         (internal)                 │   (internal)        │
+│         1 GB RAM                   │    128 MB RAM       │
+└────────────────────────────────────┴─────────────────────┘
 ```
 
 ### Resource Allocation
@@ -62,12 +62,21 @@
 
 | Port | Service | Purpose |
 |------|---------|---------|
-| 80 | Nginx | HTTP → HTTPS redirect |
-| 443 | Nginx | HTTPS (admin + PWA) |
+| 80 | Nginx | HTTP -> HTTPS redirect |
+| 443 | Nginx | HTTPS (admin panel + API) |
+| 9443 | Nginx | HTTPS (PWA review form) |
 | 22 | SSH | Server administration |
 
 ## SSL Certificates
 
+### Production (current setup)
+- **Type:** Self-signed certificate
+- **CN/SAN:** IP `89.125.130.105`
+- **Validity:** 365 days (manual renewal)
+- **Location:** `nginx/ssl/selfsigned.crt`, `nginx/ssl/selfsigned.key`
+- **Telegram:** certificate is uploaded during webhook registration
+
+### With domain (future)
 - **Provider:** Let's Encrypt (free)
 - **Renewal:** Automatic via certbot
 - **Domains:** `admin.reviewhub.ru`, `review.reviewhub.ru`
@@ -109,3 +118,4 @@ GET /api/health → 200
 - PostgreSQL: `pg_dump` daily at 03:00 MSK
 - Retention: 30 daily + 12 weekly
 - Restore test: monthly
+- Restore procedure: see [Deployment](deployment.md#restore-from-backup)

@@ -5,7 +5,7 @@ import { dashboardQuerySchema } from './schema.js';
 export async function analyticsRoutes(
   app: FastifyInstance,
   analyticsService: AnalyticsService,
-  authenticate: (request: FastifyRequest, reply: unknown) => Promise<void>,
+  authenticate: (request: FastifyRequest, reply: any) => Promise<void>,
 ) {
   app.get('/api/analytics/dashboard', {
     preHandler: [authenticate],

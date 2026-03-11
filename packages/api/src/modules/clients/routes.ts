@@ -7,7 +7,7 @@ const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10MB
 export async function clientsRoutes(
   app: FastifyInstance,
   clientsService: ClientsService,
-  authenticate: (request: FastifyRequest, reply: unknown) => Promise<void>,
+  authenticate: (request: FastifyRequest, reply: any) => Promise<void>,
 ) {
   app.get('/api/clients', {
     preHandler: [authenticate],

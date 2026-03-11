@@ -76,6 +76,8 @@ ReviewHub supports SMS, Telegram, and Max channels.
 4. The system will auto-validate the token and register a webhook
 5. Bot username will appear after successful setup
 
+> **Note (self-signed SSL):** When using a self-signed certificate, the system automatically uploads it during Telegram webhook registration. This is required for receiving Telegram updates on an HTTPS endpoint without a CA-issued certificate.
+
 ### Max (max.ru)
 
 1. Create a bot in [Max](https://max.ru) settings

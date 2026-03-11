@@ -5,7 +5,7 @@ import { submitReviewSchema, listReviewsSchema } from './schema.js';
 export async function reviewRoutes(
   app: FastifyInstance,
   reviewService: ReviewService,
-  authenticate: (request: FastifyRequest, reply: unknown) => Promise<void>,
+  authenticate: (request: FastifyRequest, reply: any) => Promise<void>,
 ) {
   // Public routes (no auth) — accessed by customers from SMS link
 
@@ -16,7 +16,7 @@ export async function reviewRoutes(
     const result = await reviewService.getFormData(token);
 
     if ('error' in result) {
-      return reply.status(result.status).send({ error: { code: result.error } });
+      return reply.status(result.status ?? 400).send({ error: { code: result.error } });
     }
     return result.data;
   });
@@ -34,7 +34,7 @@ export async function reviewRoutes(
 
     const result = await reviewService.submitReview(token, parsed.data);
     if ('error' in result) {
-      return reply.status(result.status).send({ error: { code: result.error } });
+      return reply.status(result.status ?? 400).send({ error: { code: result.error } });
     }
     return result.data;
   });
@@ -46,7 +46,7 @@ export async function reviewRoutes(
     const result = await reviewService.optOut(token);
 
     if ('error' in result) {
-      return reply.status(result.status).send({ error: { code: result.error } });
+      return reply.status(result.status ?? 400).send({ error: { code: result.error } });
     }
     return result.data;
   });
