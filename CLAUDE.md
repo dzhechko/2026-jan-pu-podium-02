@@ -73,19 +73,52 @@ reviewhub/
 | code-reviewer | Quality review + edge cases |
 | architect | System design decisions |
 
+## Feature Development Lifecycle
+
+New features use the 4-phase lifecycle: `/feature [name]`
+1. **PLAN** — sparc-prd-mini (with Gate + external skills) → `docs/features/<n>/sparc/`
+2. **VALIDATE** — requirements-validator swarm → score ≥70 (HARD GATE)
+3. **IMPLEMENT** — parallel agents from validated docs
+4. **REVIEW** — brutal-honesty-review swarm → fix all criticals
+
+Available lifecycle skills in `.claude/skills/`:
+- `sparc-prd-mini` (orchestrator, delegates to explore, goap-research, problem-solver-enhanced)
+- `explore` (Socratic questioning → Product Brief)
+- `goap-research-ed25519` (GOAP A* + OODA → Research Findings)
+- `problem-solver-enhanced` (9 modules + TRIZ → Solution Strategy)
+- `requirements-validator`
+- `brutal-honesty-review`
+
 ## Available Commands
 
 | Command | Description |
 |---------|-------------|
 | /start | Bootstrap project from docs |
+| /feature [name] | Full 4-phase lifecycle (plan → validate → implement → review) |
+| /go [feature] | Auto-select pipeline (/plan, /feature) and implement |
+| /run [mvp\|all] | Bootstrap + implement features in loop |
 | /plan [feature] | Plan implementation |
 | /test [scope] | Run/generate tests |
 | /deploy [env] | Deploy to environment |
+| /myinsights [title] | Capture development insight to knowledge base |
+| /docs [rus\|eng] | Generate bilingual documentation |
 | /replicate | Full pipeline (already done) |
 | /harvest | Extract reusable knowledge |
 
+## Automation Commands
+
+- `/go [feature]` — auto-select pipeline (/plan, /feature, /feature-ent) and implement
+- `/run` or `/run mvp` — bootstrap + implement all MVP features in a loop
+- `/run all` — bootstrap + implement ALL features
+- `/docs` — generate bilingual documentation (RU/EN) in /README/
+
 ## Development Insights
 
+Index: [myinsights/1nsights.md](myinsights/1nsights.md) — check here FIRST before debugging.
+On error → grep the error string in the index → read only the matched detail file.
+Capture new findings: `/myinsights [title]`
+
+### Known Insights
 - Sentiment threshold: confidence ≥ 0.7 for positive routing
 - Star rating fallback: ≥ 4 stars = positive when LLM unavailable
 - SMS batch size: 50 per SMSC.ru API call
