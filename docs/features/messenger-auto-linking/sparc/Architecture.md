@@ -91,10 +91,21 @@ The only addition is a `WEBHOOK_SECRET` environment variable for webhook verific
 
 ## Environment Variables
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `WEBHOOK_SECRET` | HMAC key for webhook token generation | Random 32-byte hex string |
-| `API_BASE_URL` | Public URL of API for webhook registration | `https://api.reviewhub.ru` |
+| Variable | Purpose | Example | Required |
+|----------|---------|---------|----------|
+| `WEBHOOK_SECRET` | HMAC key for webhook token generation | Random 32-byte hex string | Yes (min 64 hex chars) |
+| `API_BASE_URL` | Public URL of API for webhook registration | `https://api.reviewhub.ru` | Yes (valid URL) |
+
+Both must be added to `packages/api/src/config/env.ts` (Zod schema) and `.env.example`.
+
+## CORS for Webhook Endpoints
+
+Webhook routes (`/api/webhooks/*`) must bypass the global CORS restriction. The current CORS whitelist only allows `APP_URL` and `PWA_URL`. Telegram and Max servers need to POST to our webhook endpoints.
+
+**Solution:** Register webhook routes with Fastify **before** the global CORS plugin, or configure per-route CORS with `origin: true` for the `/api/webhooks` prefix. This is safe because:
+- Webhook endpoints have no cookies/sessions
+- Authentication is via secret token header, not origin
+- Rate limiting applies independently
 
 ## Security Considerations
 
