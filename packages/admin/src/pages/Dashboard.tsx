@@ -12,12 +12,28 @@ interface DashboardData {
   reviews_by_day: Array<{ date: string; count: number }>;
 }
 
+interface ChannelData {
+  channels: Array<{
+    channel: string;
+    sent: number;
+    failed: number;
+    reviews: number;
+    conversion_rate: number;
+  }>;
+  fallback_count: number;
+}
+
 export function Dashboard() {
   const [period, setPeriod] = useState('30d');
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', period],
     queryFn: () => apiClient<DashboardData>(`/analytics/dashboard?period=${period}`),
+  });
+
+  const { data: channelData } = useQuery({
+    queryKey: ['channels', period],
+    queryFn: () => apiClient<ChannelData>(`/analytics/channels?period=${period}`),
   });
 
   if (isLoading) return <div className="text-gray-400">Загрузка...</div>;
@@ -55,6 +71,41 @@ export function Dashboard() {
         </div>
       </div>
 
+      {channelData && (
+        <div className="bg-white rounded-xl p-4 border mb-8">
+          <h3 className="font-medium text-gray-900 mb-4">По каналам</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="pb-2">Канал</th>
+                  <th className="pb-2">Отправлено</th>
+                  <th className="pb-2">Ошибки</th>
+                  <th className="pb-2">Отзывы</th>
+                  <th className="pb-2">Конверсия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {channelData.channels.map((ch) => (
+                  <tr key={ch.channel} className="border-b last:border-0">
+                    <td className="py-2 font-medium">{channelLabel(ch.channel)}</td>
+                    <td className="py-2">{ch.sent}</td>
+                    <td className="py-2 text-red-500">{ch.failed}</td>
+                    <td className="py-2">{ch.reviews}</td>
+                    <td className="py-2">{(ch.conversion_rate * 100).toFixed(0)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {channelData.fallback_count > 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              Fallback на SMS: {channelData.fallback_count} раз(а)
+            </p>
+          )}
+        </div>
+      )}
+
       {data?.reviews_by_day && data.reviews_by_day.length > 0 && (
         <div className="bg-white rounded-xl p-4 border">
           <h3 className="font-medium text-gray-900 mb-4">Отзывы по дням</h3>
@@ -77,6 +128,15 @@ export function Dashboard() {
       )}
     </div>
   );
+}
+
+function channelLabel(channel: string): string {
+  switch (channel) {
+    case 'sms': return 'SMS';
+    case 'telegram': return 'Telegram';
+    case 'max': return 'Max';
+    default: return channel;
+  }
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {

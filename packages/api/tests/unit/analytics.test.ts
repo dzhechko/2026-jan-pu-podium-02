@@ -68,4 +68,57 @@ describe('AnalyticsService', () => {
     // Just verify it doesn't throw
     expect(prisma.smsLog.count).toHaveBeenCalled();
   });
+
+  describe('getChannelBreakdown', () => {
+    it('returns per-channel stats', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          { channel: 'sms', sent: BigInt(80), failed: BigInt(5) },
+          { channel: 'telegram', sent: BigInt(30), failed: BigInt(2) },
+          { channel: 'max', sent: BigInt(10), failed: BigInt(0) },
+        ])
+        .mockResolvedValueOnce([
+          { channel: 'sms', count: BigInt(20) },
+          { channel: 'telegram', count: BigInt(15) },
+        ]);
+      prisma.smsLog.count.mockResolvedValue(3); // fallback count
+
+      const result = await service.getChannelBreakdown('admin-1', { period: '30d' });
+
+      expect(result.channels).toHaveLength(3);
+      const sms = result.channels.find((c: any) => c.channel === 'sms')!;
+      expect(sms.sent).toBe(80);
+      expect(sms.failed).toBe(5);
+      expect(sms.reviews).toBe(20);
+      expect(sms.conversion_rate).toBe(0.25);
+
+      const tg = result.channels.find((c: any) => c.channel === 'telegram')!;
+      expect(tg.sent).toBe(30);
+      expect(tg.reviews).toBe(15);
+      expect(tg.conversion_rate).toBe(0.5);
+
+      const max = result.channels.find((c: any) => c.channel === 'max')!;
+      expect(max.sent).toBe(10);
+      expect(max.reviews).toBe(0);
+      expect(max.conversion_rate).toBe(0);
+
+      expect(result.fallback_count).toBe(3);
+    });
+
+    it('handles no data', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      prisma.smsLog.count.mockResolvedValue(0);
+
+      const result = await service.getChannelBreakdown('admin-1', { period: '7d' });
+
+      expect(result.channels).toHaveLength(3);
+      result.channels.forEach((ch: any) => {
+        expect(ch.sent).toBe(0);
+        expect(ch.conversion_rate).toBe(0);
+      });
+      expect(result.fallback_count).toBe(0);
+    });
+  });
 });

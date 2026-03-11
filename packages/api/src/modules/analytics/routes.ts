@@ -13,4 +13,11 @@ export async function analyticsRoutes(
     const parsed = dashboardQuerySchema.parse(request.query);
     return analyticsService.getDashboard(request.user!.sub, parsed);
   });
+
+  app.get('/api/analytics/channels', {
+    preHandler: [authenticate],
+  }, async (request) => {
+    const parsed = dashboardQuerySchema.parse(request.query);
+    return analyticsService.getChannelBreakdown(request.user!.sub, parsed);
+  });
 }
