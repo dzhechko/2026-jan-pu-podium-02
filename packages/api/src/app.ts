@@ -3,9 +3,16 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import cookie from '@fastify/cookie';
+import { PrismaClient } from '@prisma/client';
 import { loadEnv } from './config/env.js';
+import { AuthService } from './modules/auth/service.js';
+import { authRoutes } from './modules/auth/routes.js';
+import { createAuthMiddleware } from './modules/auth/middleware.js';
 
 const env = loadEnv();
+const prisma = new PrismaClient();
+const authService = new AuthService(prisma, env.JWT_SECRET, env.JWT_REFRESH_SECRET);
+export const authenticate = createAuthMiddleware(authService);
 
 const app = Fastify({
   logger: {
@@ -39,6 +46,14 @@ app.get('/api/health', async () => ({
   uptime: process.uptime(),
   timestamp: new Date().toISOString(),
 }));
+
+// Auth routes
+await authRoutes(app, authService);
+
+// Graceful shutdown
+app.addHook('onClose', async () => {
+  await prisma.$disconnect();
+});
 
 // Start
 const start = async () => {
