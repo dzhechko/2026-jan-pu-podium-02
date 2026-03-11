@@ -40,6 +40,25 @@ export class WebhookService {
   }
 
   /**
+   * Generate HMAC-SHA256("max:" + adminId, webhookSecret) as hex string.
+   * Used as a path token in Max webhook URL for authentication.
+   */
+  generateMaxSecret(adminId: string): string {
+    return createHmac('sha256', this.webhookSecret).update(`max:${adminId}`).digest('hex');
+  }
+
+  /**
+   * Verify Max webhook URL token using constant-time comparison.
+   */
+  verifyMaxSecret(adminId: string, providedToken: string): boolean {
+    const expected = this.generateMaxSecret(adminId);
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(providedToken, 'utf8');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  }
+
+  /**
    * Compare provided token with expected HMAC using constant-time comparison
    * to prevent timing side-channel attacks.
    */
@@ -238,7 +257,9 @@ export class WebhookService {
     channel: 'telegram' | 'max',
     token: string,
   ): Promise<{ success: boolean; error?: string }> {
-    const webhookUrl = `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
+    const webhookUrl = channel === 'max'
+      ? `${this.apiBaseUrl}/api/webhooks/max/${adminId}/${this.generateMaxSecret(adminId)}`
+      : `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
 
     try {
       if (channel === 'telegram') {
@@ -273,7 +294,9 @@ export class WebhookService {
    * Delegates to provider methods. Failures logged but not thrown.
    */
   async deregisterWebhook(adminId: string, channel: 'telegram' | 'max', token: string): Promise<void> {
-    const webhookUrl = `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
+    const webhookUrl = channel === 'max'
+      ? `${this.apiBaseUrl}/api/webhooks/max/${adminId}/${this.generateMaxSecret(adminId)}`
+      : `${this.apiBaseUrl}/api/webhooks/${channel}/${adminId}`;
 
     try {
       if (channel === 'telegram') {

@@ -70,6 +70,37 @@ describe('WebhookService', () => {
     });
   });
 
+  describe('generateMaxSecret', () => {
+    it('returns consistent HMAC for same adminId', () => {
+      const s1 = service.generateMaxSecret('admin-1');
+      const s2 = service.generateMaxSecret('admin-1');
+      expect(s1).toBe(s2);
+      expect(s1).toHaveLength(64);
+    });
+
+    it('differs from Telegram secret for same adminId', () => {
+      const tgSecret = service.generateTelegramSecret('admin-1');
+      const maxSecret = service.generateMaxSecret('admin-1');
+      expect(tgSecret).not.toBe(maxSecret);
+    });
+  });
+
+  describe('verifyMaxSecret', () => {
+    it('returns true for valid token', () => {
+      const token = service.generateMaxSecret('admin-1');
+      expect(service.verifyMaxSecret('admin-1', token)).toBe(true);
+    });
+
+    it('returns false for invalid token', () => {
+      expect(service.verifyMaxSecret('admin-1', 'wrong')).toBe(false);
+    });
+
+    it('returns false for telegram secret used as max', () => {
+      const tgToken = service.generateTelegramSecret('admin-1');
+      expect(service.verifyMaxSecret('admin-1', tgToken)).toBe(false);
+    });
+  });
+
   describe('processTelegramUpdate', () => {
     const validUUID = '12345678-1234-1234-1234-123456789abc';
 

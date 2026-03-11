@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { WebhookService } from './service.js';
 import {
   webhookParamsSchema,
+  maxWebhookParamsSchema,
   telegramWebhookBodySchema,
   maxWebhookBodySchema,
 } from './schema.js';
@@ -58,22 +59,27 @@ export async function webhookRoutes(
   });
 
   /**
-   * POST /api/webhooks/max/:adminId
+   * POST /api/webhooks/max/:adminId/:token
    *
    * Receives updates from Max Bot API.
-   * No secret token mechanism available from Max — security relies on
-   * obscure adminId UUID in URL + rate limiting + input validation.
+   * Authenticates via per-admin HMAC token in URL path.
    * Responds 200 immediately; linking and confirmation run async.
    */
-  app.post('/api/webhooks/max/:adminId', async (request, reply) => {
-    // Validate URL param
-    const paramsParsed = webhookParamsSchema.safeParse(request.params);
+  app.post('/api/webhooks/max/:adminId/:token', async (request, reply) => {
+    // Validate URL params
+    const paramsParsed = maxWebhookParamsSchema.safeParse(request.params);
     if (!paramsParsed.success) {
-      request.log.warn({ params: request.params }, 'max webhook: invalid adminId param');
+      request.log.warn('max webhook: invalid params');
       return reply.status(200).send({ ok: true });
     }
 
-    const { adminId } = paramsParsed.data;
+    const { adminId, token } = paramsParsed.data;
+
+    // Verify HMAC token
+    if (!webhookService.verifyMaxSecret(adminId, token)) {
+      request.log.warn({ adminId }, 'max webhook: invalid token');
+      return reply.status(200).send({ ok: true });
+    }
 
     // Parse body
     const bodyParsed = maxWebhookBodySchema.safeParse(request.body);

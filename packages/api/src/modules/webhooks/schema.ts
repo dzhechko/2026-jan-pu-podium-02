@@ -6,6 +6,15 @@ export const webhookParamsSchema = z.object({
     .uuid('adminId must be a valid UUID'),
 });
 
+export const maxWebhookParamsSchema = z.object({
+  adminId: z
+    .string()
+    .uuid('adminId must be a valid UUID'),
+  token: z
+    .string()
+    .length(64, 'token must be 64 hex characters'),
+});
+
 export const telegramWebhookBodySchema = z.object({
   update_id: z.number().int(),
   message: z
