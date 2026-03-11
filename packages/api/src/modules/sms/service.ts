@@ -73,9 +73,14 @@ export class ReviewRequestService {
         } else {
           msg = `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
         }
-        // Append bot deep link to SMS if bot configured and client not yet linked
-        if (ch === 'sms' && admin.telegramBotUsername && !client.telegramChatIdEncrypted) {
-          msg += `\nTelegram: t.me/${admin.telegramBotUsername}?start=${client.id}`;
+        // Append bot deep links to SMS if bot configured and client not yet linked
+        if (ch === 'sms') {
+          if (admin.telegramBotUsername && !client.telegramChatIdEncrypted) {
+            msg += `\nTelegram: t.me/${admin.telegramBotUsername}?start=${client.id}`;
+          }
+          if (admin.maxBotName && !client.maxChatIdEncrypted) {
+            msg += `\nMax: max.ru/${admin.maxBotName}?start=${client.id}`;
+          }
         }
         return msg;
       };

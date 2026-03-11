@@ -91,25 +91,29 @@ export class WebhookService {
 
   /**
    * Process incoming Max update.
-   * Fires response immediately; linking + confirmation are async.
+   * Max uses `bot_started` event with `payload` field for deep links
+   * (https://max.ru/{botName}?start={payload}), NOT /start in message text.
    */
   async processMaxUpdate(adminId: string, update: MaxWebhookBody): Promise<void> {
-    if (update.update_type !== 'message_created') return;
+    if (update.update_type !== 'bot_started') return;
 
-    const message = update.message;
-    if (!message) return;
+    // bot_started event has payload, user, and chat_id at top level
+    const payload = update.payload;
+    if (!payload) return;
 
-    const text = message.body.text ?? '';
-    if (!text.startsWith('/start ')) return;
-
-    const clientId = text.substring(7).trim();
+    const clientId = payload.trim();
     if (!UUID_REGEX.test(clientId)) {
-      this.log.warn('max webhook: /start param is not a UUID', { adminId, clientId });
+      this.log.warn('max webhook: payload is not a UUID', { adminId });
       return;
     }
 
-    // Use sender.user_id for DM routing (recipient.chat_id is the conversation context)
-    const chatId = String(message.sender.user_id);
+    const userId = update.user?.user_id;
+    if (!userId) {
+      this.log.warn('max webhook: bot_started without user_id', { adminId });
+      return;
+    }
+
+    const chatId = String(userId);
 
     // Fire and forget — caller has already sent 200
     this.linkClient(adminId, clientId, 'max', chatId)
@@ -121,7 +125,6 @@ export class WebhookService {
       .catch((err: unknown) => {
         this.log.error('max auto-link failed', {
           adminId,
-          clientId,
           error: String(err),
         });
       });

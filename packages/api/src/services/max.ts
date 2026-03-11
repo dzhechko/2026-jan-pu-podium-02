@@ -91,7 +91,7 @@ export class MaxProvider {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url,
-          update_types: ['message_created'],
+          update_types: ['message_created', 'bot_started'],
         }),
         signal: AbortSignal.timeout(10000),
       });

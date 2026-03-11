@@ -28,9 +28,24 @@ export const telegramWebhookBodySchema = z.object({
     .optional(),
 });
 
+/**
+ * Max sends `bot_started` events when a user opens a bot via deep link
+ * (https://max.ru/{botName}?start={payload}). The payload is in the
+ * `payload` field, not in message text like Telegram's /start.
+ *
+ * Max also sends `message_created` for regular messages.
+ */
 export const maxWebhookBodySchema = z.object({
   update_type: z.string(),
   timestamp: z.number().int(),
+  // bot_started event fields
+  chat_id: z.number().int().optional(),
+  user: z.object({
+    user_id: z.number().int(),
+    name: z.string().optional(),
+  }).optional(),
+  payload: z.string().max(128).optional(),
+  // message_created event fields (kept for future use)
   message: z
     .object({
       sender: z.object({
