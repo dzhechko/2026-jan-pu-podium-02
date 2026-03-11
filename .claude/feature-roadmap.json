@@ -96,7 +96,7 @@
       "id": "sms-templates",
       "name": "Custom SMS Templates",
       "description": "Admin-customizable SMS text per reminder step (US-008)",
-      "status": "planned",
+      "status": "done",
       "files": ["packages/api/src/modules/sms/"],
       "depends_on": ["cascade-reminders"],
       "sprint": "v1.0"

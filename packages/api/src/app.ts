@@ -16,6 +16,7 @@ import { ClientsService } from './modules/clients/service.js';
 import { clientsRoutes } from './modules/clients/routes.js';
 import { SmscService } from './services/smsc.js';
 import { ReviewRequestService } from './modules/sms/service.js';
+import { SmsTemplateService } from './modules/sms/template-service.js';
 import { smsRoutes } from './modules/sms/routes.js';
 import { ReviewService } from './modules/reviews/service.js';
 import { reviewRoutes } from './modules/reviews/routes.js';
@@ -81,8 +82,9 @@ await clientsRoutes(app, clientsService, authenticate);
 
 // SMS / Review Request routes
 const smscService = new SmscService(env.SMSC_LOGIN, env.SMSC_PASSWORD, env.SMSC_SENDER);
-const reviewRequestService = new ReviewRequestService(prisma, smscService, encryptionService, env.PWA_URL);
-await smsRoutes(app, reviewRequestService, authenticate);
+const smsTemplateService = new SmsTemplateService(prisma);
+const reviewRequestService = new ReviewRequestService(prisma, smscService, encryptionService, env.PWA_URL, smsTemplateService);
+await smsRoutes(app, reviewRequestService, authenticate, smsTemplateService);
 
 // Sentiment analysis
 const llmService = new LlmService(env.ANTHROPIC_API_KEY);

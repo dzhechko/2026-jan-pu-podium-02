@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import type { SmscService } from '../../services/smsc.js';
 import type { EncryptionService } from '../../services/encryption.js';
+import type { SmsTemplateService } from './template-service.js';
 import type { ListReviewRequestsQuery } from './schema.js';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -13,6 +14,7 @@ export class ReviewRequestService {
     private smsc: SmscService,
     private encryption: EncryptionService,
     private pwaUrl: string,
+    private templateService?: SmsTemplateService,
   ) {}
 
   async sendReviewRequests(adminId: string, clientIds: string[]) {
@@ -44,7 +46,15 @@ export class ReviewRequestService {
       });
 
       const phone = this.encryption.decrypt(Buffer.from(client.phoneEncrypted));
-      const message = `${admin.companyName} просит оставить отзыв: ${this.pwaUrl}/review/${token}\nОтписка: ${this.pwaUrl}/optout/${token}`;
+      const link = `${this.pwaUrl}/review/${token}`;
+      const optout = `${this.pwaUrl}/optout/${token}`;
+
+      let message: string;
+      if (this.templateService) {
+        message = await this.templateService.getMessage(adminId, 0, admin.companyName, link, optout);
+      } else {
+        message = `${admin.companyName} просит оставить отзыв: ${link}\nОтписка: ${optout}`;
+      }
 
       const result = await this.smsc.sendSms(phone, message);
       const phoneMasked = phone.slice(0, 4) + '****' + phone.slice(-2);
