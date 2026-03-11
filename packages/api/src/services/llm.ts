@@ -37,15 +37,31 @@ export class LlmService {
     };
 
     const responseText = data.content[0]?.text ?? '';
-    const jsonMatch = responseText.match(/\{[^}]+\}/);
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('Failed to parse LLM response');
+      throw new Error('Failed to parse LLM response: no JSON found');
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as SentimentResult;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      throw new Error('Failed to parse LLM response: invalid JSON');
+    }
+
+    const sentiment = String(parsed.sentiment ?? '').toLowerCase();
+    if (!['positive', 'negative', 'neutral'].includes(sentiment)) {
+      throw new Error(`Invalid sentiment value: ${sentiment}`);
+    }
+
+    const confidence = Number(parsed.confidence);
+    if (Number.isNaN(confidence)) {
+      throw new Error('Invalid confidence value');
+    }
+
     return {
-      sentiment: parsed.sentiment,
-      confidence: Math.min(1, Math.max(0, parsed.confidence)),
+      sentiment: sentiment as SentimentResult['sentiment'],
+      confidence: Math.min(1, Math.max(0, confidence)),
     };
   }
 }

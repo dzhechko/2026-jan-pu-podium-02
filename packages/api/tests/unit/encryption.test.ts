@@ -38,11 +38,11 @@ describe('EncryptionService', () => {
     expect(() => service.decrypt(encrypted)).toThrow();
   });
 
-  it('pads short keys to 64 hex chars', () => {
-    const shortKeyService = new EncryptionService('abc');
-    const phone = '+79001234567';
-    const encrypted = shortKeyService.encrypt(phone);
-    const decrypted = shortKeyService.decrypt(encrypted);
-    expect(decrypted).toBe(phone);
+  it('rejects short keys', () => {
+    expect(() => new EncryptionService('abc')).toThrow('at least 64 hex characters');
+  });
+
+  it('rejects too-short encrypted data in decrypt', () => {
+    expect(() => service.decrypt(Buffer.from('short'))).toThrow('too short');
   });
 });

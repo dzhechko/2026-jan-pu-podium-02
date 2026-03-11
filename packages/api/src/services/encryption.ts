@@ -8,8 +8,10 @@ export class EncryptionService {
   private key: Buffer;
 
   constructor(hexKey: string) {
-    // Key should be 32 bytes (64 hex chars) for AES-256
-    this.key = Buffer.from(hexKey.padEnd(64, '0').slice(0, 64), 'hex');
+    if (hexKey.length < 64) {
+      throw new Error('ENCRYPTION_KEY must be at least 64 hex characters (32 bytes)');
+    }
+    this.key = Buffer.from(hexKey.slice(0, 64), 'hex');
   }
 
   encrypt(plaintext: string): Buffer {
@@ -28,6 +30,11 @@ export class EncryptionService {
   }
 
   decrypt(data: Buffer): string {
+    const minLength = IV_LENGTH + AUTH_TAG_LENGTH;
+    if (data.length < minLength) {
+      throw new Error(`Encrypted data too short: expected at least ${minLength} bytes, got ${data.length}`);
+    }
+
     const iv = data.subarray(0, IV_LENGTH);
     const authTag = data.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
     const ciphertext = data.subarray(IV_LENGTH + AUTH_TAG_LENGTH);

@@ -7,11 +7,13 @@ const TERMINAL_STATUSES = ['REVIEWED', 'OPTED_OUT', 'EXPIRED'];
 const MAX_REMINDERS = 4;
 const BATCH_SIZE = 50;
 
-// Delays between reminders (from current reminder to next)
-const REMINDER_DELAYS: Record<number, number> = {
-  2: 22 * 60 * 60 * 1000,     // After reminder 1: +22h (total 24h from initial)
-  3: 2 * 24 * 60 * 60 * 1000, // After reminder 2: +2d (total 3d)
-  4: 4 * 24 * 60 * 60 * 1000, // After reminder 3: +4d (total 7d)
+// Delay until next reminder (computed to match absolute timing from initial SMS)
+// Schedule: initial → 2h → 24h → 3d → 7d (absolute from initial)
+// Delays between consecutive reminders:
+const NEXT_REMINDER_DELAY: Record<number, number> = {
+  2: 22 * 60 * 60 * 1000,     // After #1 (at T+2h): next at T+24h → delay = 22h
+  3: 2 * 24 * 60 * 60 * 1000, // After #2 (at T+24h): next at T+3d → delay = 2d
+  4: 4 * 24 * 60 * 60 * 1000, // After #3 (at T+3d): next at T+7d → delay = 4d
 };
 
 interface ReminderResult {
@@ -92,7 +94,7 @@ export class ReminderService {
 
         if (smsResult.success) {
           // Calculate next reminder timing
-          const nextDelay = REMINDER_DELAYS[nextReminderNumber + 1];
+          const nextDelay = NEXT_REMINDER_DELAY[nextReminderNumber + 1];
           const nextReminderAt = nextDelay ? new Date(now.getTime() + nextDelay) : null;
 
           await this.prisma.reviewRequest.update({

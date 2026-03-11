@@ -11,7 +11,7 @@ const envSchema = z.object({
   SMSC_PASSWORD: z.string().default(''),
   SMSC_SENDER: z.string().default('ReviewHub'),
   ANTHROPIC_API_KEY: z.string().default(''),
-  ENCRYPTION_KEY: z.string().min(32).default('dev-key-must-be-at-least-32-chars!!'),
+  ENCRYPTION_KEY: z.string().min(64, 'ENCRYPTION_KEY must be at least 64 hex characters'),
   APP_URL: z.string().default('http://localhost:5173'),
   PWA_URL: z.string().default('http://localhost:5174'),
 });
