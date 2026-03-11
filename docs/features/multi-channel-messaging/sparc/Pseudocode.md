@@ -59,7 +59,7 @@ CLASS MaxProvider IMPLEMENTS MessageProvider:
       IF data.message:
         RETURN { success: true, externalId: String(data.message.body.mid) }
       ELSE:
-        RETURN { success: false, error: data.message || "Unknown error" }
+        RETURN { success: false, error: data.error || data.description || "Unknown error" }
     CATCH err:
       RETURN { success: false, error: String(err) }
 
@@ -72,9 +72,14 @@ CLASS MaxProvider IMPLEMENTS MessageProvider:
       RETURN false
 ```
 
-## 2. MessageGateway
+## 2. MessageGateway (with fallback template re-fetch)
 
 ```
+INTERFACE Recipient:
+  phone: string               // Always available (required field)
+  telegramChatId?: string
+  maxChatId?: string
+
 CLASS MessageGateway:
   providers: Map<string, MessageProvider> = {}
 
@@ -85,24 +90,40 @@ CLASS MessageGateway:
     IF maxToken:
       this.providers.set("max", new MaxProvider(maxToken))
 
-  ASYNC send(channel: string, recipient: string, message: string, smsPhone?: string) -> MessageResult:
+  ASYNC send(
+    channel: string,
+    recipient: Recipient,
+    messageFetcher: (ch: string) -> ASYNC string  // Re-fetches template per channel
+  ) -> MessageResult & { actualChannel: string }:
+
+    recipientId = this.getRecipientId(channel, recipient)
     provider = this.providers.get(channel)
 
-    IF NOT provider:
-      IF channel != "sms" AND smsPhone:
-        // Channel not configured, fallback to SMS
-        RETURN this.send("sms", smsPhone, message)
-      RETURN { success: false, error: "Channel not configured: " + channel }
+    // Try primary channel
+    IF provider AND recipientId:
+      message = AWAIT messageFetcher(channel)
+      result = AWAIT provider.send(recipientId, message)
+      IF result.success:
+        RETURN { ...result, actualChannel: channel }
+      ELSE:
+        LOG_WARN("Channel " + channel + " failed: " + result.error)
 
-    result = AWAIT provider.send(recipient, message)
+    // Fallback to SMS (with SMS-specific template!)
+    IF channel != "sms":
+      smsProvider = this.providers.get("sms")
+      IF smsProvider AND recipient.phone:
+        smsMessage = AWAIT messageFetcher("sms")  // RE-FETCH SMS template (AC-9)
+        smsResult = AWAIT smsProvider.send(recipient.phone, smsMessage)
+        RETURN { ...smsResult, actualChannel: "sms", fallbackFrom: channel }
 
-    // Fallback: if messenger fails and SMS is available
-    IF NOT result.success AND channel != "sms" AND smsPhone:
-      smsResult = AWAIT this.providers.get("sms").send(smsPhone, message)
-      smsResult.fallbackFrom = channel  // Track that fallback was used
-      RETURN smsResult
+    RETURN { success: false, error: "No channel available", actualChannel: channel }
 
-    RETURN result
+  getRecipientId(channel: string, recipient: Recipient) -> string?:
+    SWITCH channel:
+      CASE "sms": RETURN recipient.phone
+      CASE "telegram": RETURN recipient.telegramChatId
+      CASE "max": RETURN recipient.maxChatId
+      DEFAULT: RETURN null
 
   getConfiguredChannels() -> string[]:
     RETURN Array.from(this.providers.keys())
@@ -145,13 +166,20 @@ ASYNC sendReviewRequests(adminId, clientIds, requestedChannel?):
               expiresAt: now + 30_DAYS }
     })
 
-    // Build message
+    // Build recipient object
+    recipientObj = {
+      phone: smsPhone,
+      telegramChatId: client.telegramChatId,
+      maxChatId: client.maxChatId
+    }
+
+    // Build message fetcher (re-fetches per channel for fallback)
     link = pwaUrl + "/review/" + token
     optout = pwaUrl + "/optout/" + token
-    message = AWAIT templateService.getMessage(adminId, 0, admin.companyName, link, optout, channel)
+    messageFetcher = (ch) => templateService.getMessage(adminId, 0, admin.companyName, link, optout, ch)
 
-    // Send via gateway
-    result = AWAIT gateway.send(channel, recipient, message, smsPhone)
+    // Send via gateway (handles fallback + template re-fetch)
+    result = AWAIT gateway.send(channel, recipientObj, messageFetcher)
 
     IF result.success:
       AWAIT prisma.reviewRequest.update(reviewRequest.id, {
@@ -201,14 +229,15 @@ ASYNC processReminders():
       channel = "sms"
       recipient = smsPhone
 
-    // Build message
+    // Build recipient + message fetcher
     nextNum = request.reminderCount + 1
     link = pwaUrl + "/review/" + request.token
     optout = pwaUrl + "/optout/" + request.token
-    message = AWAIT templateService.getMessage(request.adminId, nextNum, admin.companyName, link, optout, channel)
+    recipientObj = { phone: smsPhone, telegramChatId: request.client.telegramChatId, maxChatId: request.client.maxChatId }
+    messageFetcher = (ch) => templateService.getMessage(request.adminId, nextNum, admin.companyName, link, optout, ch)
 
-    // Send
-    result = AWAIT gateway.send(channel, recipient, message, smsPhone)
+    // Send via gateway (handles fallback + template re-fetch)
+    result = AWAIT gateway.send(channel, recipientObj, messageFetcher)
 
     IF result.success:
       updateReminder(request, nextNum)
@@ -287,4 +316,134 @@ FUNCTION getDefaultTemplate(reminderNumber, channel):
       CASE 0: RETURN "👋 *{company}* приглашает оставить отзыв!\n\n🔗 {link}\n\n_Отписка: {optout}_"
       CASE 1-3: RETURN "🔔 *{company}*: напоминаем — оставьте отзыв!\n\n🔗 {link}\n\n_Отписка: {optout}_"
       CASE 4: RETURN "⏰ *{company}*: последнее напоминание!\n\n🔗 {link}\n\n_Отписка: {optout}_"
+```
+
+## 7. CSV Import: Extended Columns
+
+```
+ASYNC importClientsFromCsv(adminId, csvRows):
+  FOR EACH row IN csvRows:
+    telegramChatId = row.telegram_chat_id?.trim() OR null
+    maxChatId = row.max_chat_id?.trim() OR null
+
+    // Auto-detect preferred channel from available IDs
+    preferredChannel = row.preferred_channel?.trim()
+    IF NOT preferredChannel OR preferredChannel NOT IN ["sms", "telegram", "max"]:
+      IF telegramChatId:
+        preferredChannel = "telegram"
+      ELSE IF maxChatId:
+        preferredChannel = "max"
+      ELSE:
+        preferredChannel = "sms"
+
+    // Validate telegram_chat_id format (numeric)
+    IF telegramChatId AND NOT /^\d+$/.test(telegramChatId):
+      MARK_ROW_ERROR(row, "telegram_chat_id must be numeric")
+      CONTINUE
+
+    AWAIT prisma.client.create({
+      data: {
+        adminId,
+        name: row.name,
+        phoneEncrypted: encryption.encrypt(row.phone),
+        telegramChatId,
+        maxChatId,
+        preferredChannel
+      }
+    })
+```
+
+## 8. GET /api/settings/channels
+
+```
+ASYNC getChannels(adminId):
+  admin = AWAIT prisma.admin.findUniqueOrThrow({ where: { id: adminId } })
+
+  channels = [
+    { type: "sms", configured: true }  // SMS always available (env-based)
+  ]
+
+  IF admin.telegramBotTokenEncrypted:
+    channels.push({
+      type: "telegram",
+      configured: true,
+      bot_username: admin.telegramBotUsername
+    })
+  ELSE:
+    channels.push({ type: "telegram", configured: false })
+
+  IF admin.maxBotTokenEncrypted:
+    channels.push({
+      type: "max",
+      configured: true,
+      bot_name: admin.maxBotName
+    })
+  ELSE:
+    channels.push({ type: "max", configured: false })
+
+  RETURN { channels }
+```
+
+## 9. Telegram Bot /start Handler (AC-8)
+
+```
+// Telegram bot can only message users who have /start-ed it.
+// This section describes the flow for capturing chat_id.
+
+// Option A: Admin shares bot link (t.me/BotUsername) with clients
+// Client opens link → clicks "Start" → bot receives update with chat_id
+
+// The bot webhook/polling handler:
+ASYNC handleTelegramUpdate(update):
+  IF update.message AND update.message.text == "/start":
+    chatId = String(update.message.chat.id)
+    userName = update.message.from.first_name OR "Клиент"
+
+    // Send welcome message
+    AWAIT telegramProvider.send(chatId,
+      "Здравствуйте! Этот бот используется для отправки запросов на отзыв. " +
+      "Ваш chat ID: " + chatId
+    )
+
+    // NOTE: Auto-linking chat_id to client is out of scope for v1.
+    // Admin manually enters chat_id in client record or CSV import.
+    // Future: match by phone number or deep-link parameter.
+
+// On send failure (403 Forbidden = user hasn't /start-ed):
+// MessageGateway handles this via normal fallback to SMS (AC-8)
+
+## 10. MessageLog Helper
+
+```
+ASYNC createMessageLog(reviewRequestId, recipientMasked, messagePreview, result, channel):
+  phoneMasked = IF channel == "sms":
+    recipientMasked.slice(0, 4) + "****" + recipientMasked.slice(-2)
+  ELSE:
+    channel + ":" + recipientMasked  // e.g., "telegram:123456789"
+
+  AWAIT prisma.smsLog.create({
+    data: {
+      reviewRequestId,
+      phoneMasked,
+      messagePreview: messagePreview.slice(0, 100),
+      smscMessageId: IF channel == "sms" THEN result.externalId ELSE null,
+      externalId: result.externalId,
+      channel,
+      status: result.success ? "SENT" : "FAILED",
+      sentAt: result.success ? NOW : null
+    }
+  })
+
+  // Log fallback attempt separately
+  IF result.fallbackFrom:
+    AWAIT prisma.smsLog.create({
+      data: {
+        reviewRequestId,
+        phoneMasked: result.fallbackFrom + ":failed",
+        messagePreview: "Fallback from " + result.fallbackFrom + " to sms",
+        channel: result.fallbackFrom,
+        status: "FAILED",
+        sentAt: null
+      }
+    })
 ```

@@ -132,24 +132,48 @@ interface MessageProvider {
 ### MessageGateway (Strategy + Fallback)
 
 ```typescript
+interface Recipient {
+  phone: string;               // Always available (required field)
+  telegramChatId?: string;
+  maxChatId?: string;
+}
+
 class MessageGateway {
   private providers: Map<string, MessageProvider>;
 
-  async send(channel: string, recipient: string, message: string): Promise<MessageResult> {
+  async send(
+    channel: string,
+    recipient: Recipient,
+    messageFetcher: (ch: string) => Promise<string>  // Re-fetches template per channel
+  ): Promise<MessageResult & { actualChannel: string }> {
+    const recipientId = this.getRecipientId(channel, recipient);
     const provider = this.providers.get(channel);
-    if (!provider) return { success: false, error: `Channel ${channel} not configured` };
 
-    const result = await provider.send(recipient, message);
+    if (provider && recipientId) {
+      const message = await messageFetcher(channel);
+      const result = await provider.send(recipientId, message);
+      if (result.success) return { ...result, actualChannel: channel };
+    }
 
-    // Fallback to SMS if messenger fails
-    if (!result.success && channel !== 'sms') {
+    // Fallback to SMS if messenger fails or not available
+    if (channel !== 'sms') {
       const smsProvider = this.providers.get('sms');
       if (smsProvider) {
-        return smsProvider.send(recipient, message);
+        const smsMessage = await messageFetcher('sms');  // Re-fetch SMS template!
+        const result = await smsProvider.send(recipient.phone, smsMessage);
+        return { ...result, actualChannel: 'sms', fallbackFrom: channel };
       }
     }
 
-    return result;
+    return { success: false, error: 'No channel available', actualChannel: channel };
+  }
+
+  private getRecipientId(channel: string, recipient: Recipient): string | undefined {
+    switch (channel) {
+      case 'sms': return recipient.phone;
+      case 'telegram': return recipient.telegramChatId;
+      case 'max': return recipient.maxChatId;
+    }
   }
 }
 ```

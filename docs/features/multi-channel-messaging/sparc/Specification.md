@@ -144,3 +144,31 @@ name,phone,email,telegram_chat_id,max_chat_id,preferred_channel
 - Default templates exist for each channel
 - SMS defaults: plain text
 - Telegram/Max defaults: Markdown with emoji
+
+### AC-6: Channel Selection UI (US-MC-007)
+- Clients page shows channel selector dropdown (SMS / Telegram / Max)
+- Only channels with configured credentials appear in selector
+- Bulk send applies selected channel to all selected clients
+- Individual "send" button uses client's `preferred_channel` by default
+- If client lacks recipient ID for selected channel (e.g., no telegramChatId), show warning and fall back to SMS
+
+### AC-7: Opt-Out via Messenger Channels (152-ФЗ Compliance)
+- Opt-out link (`{optout}`) in every message across ALL channels (SMS, Telegram, Max)
+- Opt-out link points to PWA page `/optout/{token}` — same flow regardless of channel
+- Customer clicks link in messenger → opens PWA in browser → confirms opt-out
+- After opt-out: `client.optedOut = true`, all channels stop sending (not just the channel used)
+- Opt-out works independently of channel — clicking opt-out from Telegram also stops SMS reminders
+- No messenger-specific opt-out mechanism needed — web-based opt-out is channel-agnostic
+
+### AC-8: Telegram Bot /start Prerequisite
+- Telegram Bot API requires user to `/start` the bot before bot can send messages
+- Admin must instruct clients to start the bot (via QR code, link, or in-person)
+- Bot `/start` command handler stores `chat_id` → admin can link it to client record
+- If bot tries to send to a user who hasn't `/start`-ed → 403 error → fallback to SMS
+- Settings page shows Telegram bot link (`t.me/{bot_username}`) for sharing with clients
+- Future: webhook endpoint to auto-capture `/start` events and link to clients
+
+### AC-9: Fallback Template Re-fetch
+- When messenger delivery fails and system falls back to SMS, it MUST re-fetch the SMS-specific template
+- Never send a messenger-formatted message (with Markdown, emoji) via SMS
+- Fallback logic: gateway notifies caller of fallback → caller re-fetches SMS template → sends via SMS provider
