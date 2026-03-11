@@ -58,9 +58,11 @@ Required variables:
 | `SMSC_LOGIN` | SMSC.ru login | Your login |
 | `SMSC_PASSWORD` | SMSC.ru password | Your password |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | `sk-ant-...` |
-| `ENCRYPTION_KEY` | Phone encryption key | `openssl rand -hex 16` |
+| `ENCRYPTION_KEY` | Phone encryption key | `openssl rand -hex 32` |
+| `WEBHOOK_SECRET` | Webhook secret (min 32 chars) | `openssl rand -hex 32` |
 | `APP_URL` | Admin panel URL | `https://admin.reviewhub.ru` |
 | `PWA_URL` | Review form URL | `https://review.reviewhub.ru` |
+| `API_BASE_URL` | Public API URL | `https://admin.reviewhub.ru` |
 
 ### 4. Start Services
 

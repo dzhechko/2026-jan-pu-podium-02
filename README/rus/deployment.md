@@ -58,9 +58,11 @@ nano .env
 | `SMSC_LOGIN` | Логин SMSC.ru | Ваш логин |
 | `SMSC_PASSWORD` | Пароль SMSC.ru | Ваш пароль |
 | `ANTHROPIC_API_KEY` | Ключ API Anthropic Claude | `sk-ant-...` |
-| `ENCRYPTION_KEY` | Ключ шифрования телефонов | `openssl rand -hex 16` |
+| `ENCRYPTION_KEY` | Ключ шифрования телефонов | `openssl rand -hex 32` |
+| `WEBHOOK_SECRET` | Секрет для вебхуков (мин. 32 символа) | `openssl rand -hex 32` |
 | `APP_URL` | URL админ-панели | `https://admin.reviewhub.ru` |
 | `PWA_URL` | URL формы отзывов | `https://review.reviewhub.ru` |
+| `API_BASE_URL` | Публичный URL API | `https://admin.reviewhub.ru` |
 
 ### 4. Запуск сервисов
 

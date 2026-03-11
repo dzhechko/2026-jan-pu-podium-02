@@ -112,12 +112,15 @@ Clients are automatically linked to messengers via deep links:
 SMS message:
 ```
 {Company Name} asks for a review: https://review.reviewhub.ru/review/{token}
+
 Unsubscribe: https://review.reviewhub.ru/optout/{token}
+
+📲 Get notifications without SMS — subscribe to our bot:
 Telegram: t.me/{bot}?start={id}
 Max: max.ru/{bot}?start={id}
 ```
 
-Messenger clients receive a formatted message with links.
+Bot links are included only when the bot is configured and the client hasn't linked yet. Messenger clients receive a formatted message with links.
 
 ### SMS Fallback
 
