@@ -47,8 +47,6 @@ export function Clients() {
     name: '',
     phone: '',
     email: '',
-    telegram_chat_id: '',
-    max_chat_id: '',
   });
   const [error, setError] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('sms');
@@ -72,14 +70,12 @@ export function Clients() {
       name: string;
       phone: string;
       email?: string;
-      telegram_chat_id?: string;
-      max_chat_id?: string;
     }) =>
       apiClient('/clients', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setShowAdd(false);
-      setForm({ name: '', phone: '', email: '', telegram_chat_id: '', max_chat_id: '' });
+      setForm({ name: '', phone: '', email: '' });
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -104,8 +100,6 @@ export function Clients() {
       name: form.name,
       phone: form.phone,
       email: form.email || undefined,
-      telegram_chat_id: form.telegram_chat_id || undefined,
-      max_chat_id: form.max_chat_id || undefined,
     });
   };
 
@@ -138,31 +132,9 @@ export function Clients() {
             <input placeholder="Email (опционально)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="border rounded-lg px-3 py-2 text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <input
-                placeholder="Telegram Chat ID (опционально)"
-                value={form.telegram_chat_id}
-                onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Числовой ID чата. Клиент должен написать /start вашему боту, затем узнать ID через{' '}
-                <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">@userinfobot</a>
-              </p>
-            </div>
-            <div>
-              <input
-                placeholder="Max Chat ID (опционально)"
-                value={form.max_chat_id}
-                onChange={(e) => setForm({ ...form, max_chat_id: e.target.value })}
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                ID чата в Max. Клиент должен написать вашему боту, ID можно получить из webhook-событий бота.
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
+            Мессенджеры подключаются автоматически: клиент получит ссылку на бота в SMS и подключится одним нажатием.
+          </p>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
             Сохранить
